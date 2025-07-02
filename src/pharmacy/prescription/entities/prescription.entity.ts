@@ -1,0 +1,30 @@
+import { Medicine } from "src/pharmacy/medicine/entities/medicine.entity";
+import { Doctor } from "src/users/entities/doctor.entity";
+import { Patient } from "src/users/entities/patient.entity";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+
+@Entity()
+export class Prescription {
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
+
+    @Column()
+    name: string;
+
+    @ManyToOne(() => Doctor)
+    prescribedBy: Doctor;
+
+    @ManyToOne(() => Patient)
+    patient: Patient;
+
+    @Column({type: 'timestamp'})
+    date: Date;
+
+    @Column({type: 'jsonb'})
+    medications: Array<{
+        medicineId: Medicine["id"];
+        dosage: Medicine["dosage"]
+        frequency: string;
+        duration: string;
+    }>
+}
