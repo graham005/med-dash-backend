@@ -30,11 +30,11 @@ export class EPrescriptionService {
     return newPrescription;
   }
     async findAll(): Promise < EPrescription[] > {
-    const categories = await this.eprescriptionRepository.find();
-    if(categories.length === 0) {
+    const eprescription = await this.eprescriptionRepository.find();
+    if(eprescription.length === 0) {
     throw new NotFoundException('No E-Prescriptions found');
   }
-  return categories;
+  return eprescription;
     }
   
     async findOne(id: number): Promise < EPrescription > {
