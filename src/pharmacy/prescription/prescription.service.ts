@@ -36,11 +36,11 @@ export class PrescriptionService {
   return newPrescription;
 }
   async findAll(): Promise < Prescription[] > {
-  const categories = await this.prescriptionRepository.find();
-  if(categories.length === 0) {
-  throw new NotFoundException('No categories found');
+  const prescription = await this.prescriptionRepository.find();
+  if(prescription.length === 0) {
+  throw new NotFoundException('No prescription found');
 }
-return categories;
+return prescription;
   }
 
   async findOne(id: number): Promise < Prescription > {

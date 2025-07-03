@@ -22,11 +22,11 @@ export class MedicineService {
     return newMedicine;
   }
   async findAll(): Promise<Medicine[]> {
-    const categories = await this.medicineRepository.find();
-    if (categories.length === 0) {
-      throw new NotFoundException('No categories found');
+    const medicines = await this.medicineRepository.find();
+    if (medicines.length === 0) {
+      throw new NotFoundException('No medicines found');
     }
-    return categories;
+    return medicines;
   }
 
   async findOne(id: number): Promise<Medicine> {
