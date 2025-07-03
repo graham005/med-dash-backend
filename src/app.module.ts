@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -11,12 +11,32 @@ import { PharmacyOrderModule } from './pharmacy/pharmacy-order/pharmacy-order.mo
 import { PrescriptionModule } from './pharmacy/prescription/prescription.module';
 import { ConsultationModule } from './telemedicine/consultation/consultation.module';
 import { EPrescriptionModule } from './telemedicine/e-prescription/e-prescription.module';
+import { ConfigModule } from '@nestjs/config';
+import { LoggerMiddleware } from './logger.middleware';
+import { APP_GUARD } from '@nestjs/core';
+import { AtGuard } from './auth/guards/at.guard';
 
 @Module({
-  imports: [AuthModule, UsersModule, AppointmentsModule,DatabaseModule, AvailabilityModule,
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env'
+    }),
+    AuthModule, UsersModule, AppointmentsModule,DatabaseModule, AvailabilityModule,
     MedicineModule, PrescriptionModule, PharmacyOrderModule, ConsultationModule, EPrescriptionModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService,
+    {
+      provide: APP_GUARD,
+      useClass: AtGuard
+    },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule{
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(LoggerMiddleware)
+      .forRoutes('appointments', 'auth', 'availability', 'medicine', 'pharmacyOrders', 'prescription', 'consultation', 'e-prescription', 'users')
+  }
+}
