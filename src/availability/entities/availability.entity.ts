@@ -7,7 +7,7 @@ export class AvailabilitySlot {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @ManyToOne(() => Doctor, doctor => doctor.availability)
+    @ManyToOne(() => Doctor, doctor => doctor.availability )
     doctor: Doctor;
 
     @Column({type: 'timestamp'})

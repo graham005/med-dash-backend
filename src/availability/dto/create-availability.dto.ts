@@ -24,7 +24,7 @@ export class CreateAvailabilitySlotDto {
     endTime: string;
 
     @ApiProperty()
-    @IsEnum([SlotType], {
+    @IsEnum(SlotType, {
         message: 'Valid type required'
     })
     type: SlotType = SlotType.STANDARD
