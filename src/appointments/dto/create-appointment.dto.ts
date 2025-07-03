@@ -27,10 +27,13 @@ export class CreateAppointmentDto {
     endTime: string;
 
     @ApiProperty()
-    @IsEnum([AppointmentStatus],{
+    @IsEnum(AppointmentStatus,{
         message: 'Valid status required'
     })
     status: AppointmentStatus = AppointmentStatus.BOOKED
+
+    @ApiProperty()
+    availabilitySlotId: string;
 }
 
 
