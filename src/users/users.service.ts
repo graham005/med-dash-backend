@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import * as Bcrypt from 'bcrypt'
 import { UserRole } from 'src/enums';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Injectable()
 export class UsersService {
@@ -30,7 +31,7 @@ export class UsersService {
     if (existingUser) {
       throw new Error('User with this email already exists');
     }
-    const newUser = await this.userRepository.create({
+    const newUser = this.userRepository.create({
       firstName: createUserDto.firstName,
       lastName: createUserDto.lastName,
       email: createUserDto.email,
@@ -51,14 +52,18 @@ export class UsersService {
     return this.excludePassword(savedUser)
   }
 
+ 
   async findAll(userRole?: UserRole): Promise<Partial<User>[]> {
-    let users: User[];
     if(userRole) {
            const rolesArray =  await this.userRepository.find({ where: { userRole } });
            if(rolesArray.length === 0 || rolesArray === null) throw new NotFoundException ('User Role Not Found')
             return rolesArray
         }
-    users = await this.userRepository.find();
+    const users = await this.userRepository.find();
+
+    if(users.length === 0){
+      throw new NotFoundException('Users not Found')
+    }
 
     return users.map(user => this.excludePassword(user))
   }

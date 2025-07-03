@@ -20,7 +20,7 @@ export class CreateUserDto {
     password: string;
 
     @ApiProperty()
-    @IsEnum([UserRole], {
+    @IsEnum(UserRole, {
         message: 'Valid role required'
     })
     userRole: UserRole = UserRole.PATIENT

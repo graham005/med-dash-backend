@@ -20,14 +20,15 @@ export class User {
 
     @Column({
         type: 'enum',
-        enum: UserRole
+        enum: UserRole,
+        default: UserRole.PATIENT
     })
     userRole: UserRole;
 
     @Column({nullable: true})
     phoneNumber?: string;
 
-    @Column({ type: 'timestamp', default: () => 'CURRENY_TIMESTAMP'})
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP'})
     createdAt: Date;
 }
 
