@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Pharmacist } from "src/users/entities/pharmacist.entity";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
 export class Medicine {
@@ -19,4 +20,7 @@ export class Medicine {
 
     @Column()
     manufacturer: string;
+
+    @ManyToOne(() => Pharmacist)
+    addedBy: Pharmacist;
 }
