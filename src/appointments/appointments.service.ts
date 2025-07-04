@@ -126,4 +126,50 @@ export class AppointmentsService {
     await this.appointmentRepository.save(appointment);
     return appointment;
   }
+
+  async findAllforDoctor(user: User) {
+    const doctor = await this.doctorRepository.findOne({
+      where: {user: {id: user.id}},
+      relations: ['user']
+    })
+    if(!doctor) {
+      throw new NotFoundException('Doctor profile not found')
+    }
+
+    const appointment = await this.appointmentRepository.find({
+      where: {doctor: {id: doctor.user.id}},
+      relations: ['doctor', 'doctor.user', 'patient', 'availabilitySlot'],
+    })
+
+    if(appointment.length === 0) {
+      throw new NotFoundException('No appointments found for Doctor')
+    }
+  }
+
+  async findOneforDoctor(id: string, user: User ) {
+    // Find the doctor profile for the logged-in user
+    const doctor = await this.doctorRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user'],
+    });
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    // Find the appointment by id and ensure it belongs to this doctor
+    const appointment = await this.appointmentRepository.findOne({
+      where: {
+        id: id,
+        doctor: { id: doctor.user.id },
+      },
+      relations: ['doctor', 'doctor.user', 'patient', 'availabilitySlot'],
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found for this doctor');
+    }
+
+    return appointment;
+  }
 }
+

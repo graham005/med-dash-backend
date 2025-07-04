@@ -27,9 +27,23 @@ export class AppointmentsController {
   findAll(@UserDecorator() user: any) {
     return this.appointmentsService.findAll(user);
   }
+
+  @Roles(UserRole.PATIENT)
   @Get(':id')
   findOne(@Param('id') id: string, @UserDecorator() user: User) {
     return this.appointmentsService.findOne(+id, user);
+  }
+
+  @Roles(UserRole.DOCTOR)
+  @Get()
+  findAllforDoctor(@UserDecorator()user: User) {
+    return this.appointmentsService.findAllforDoctor(user);
+  }
+
+  @Roles(UserRole.DOCTOR)
+  @Get(':id')
+  findOneforDoctor(@Param('id') id: string, @UserDecorator() user: User){
+    return this.appointmentsService.findOneforDoctor(id, user)
   }
 
   @Roles(UserRole.PATIENT)
@@ -47,6 +61,7 @@ export class AppointmentsController {
   remove(@Param('id') id: string, @UserDecorator() user: User) {
     return this.appointmentsService.remove(+id, user);
   }
+  
 }
 
 
