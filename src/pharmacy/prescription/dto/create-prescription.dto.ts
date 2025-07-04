@@ -1,18 +1,23 @@
+import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { IsString, IsNotEmpty, IsDateString, IsArray, ValidateNested } from "class-validator";
 
 export class CreatePrescriptionDto {
+    @ApiProperty()
     @IsString()
     @IsNotEmpty()
     name: string;
 
+    @ApiProperty()
     @IsString()
     @IsNotEmpty()
-    patient: string;
+    patientId: string;
 
+    @ApiProperty()
     @IsDateString()
     date: string;
 
+    @ApiProperty()
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => MedicationsDto)
