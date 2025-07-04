@@ -11,7 +11,7 @@ export class PharmacyOrder {
     @ManyToOne(() => Pharmacist)
     pharmacist: Pharmacist;
 
-    @ManyToOne(() => Prescription)
+    @ManyToOne(() => Prescription, prescription => prescription.orders)
     prescription: Prescription;
 
     @Column({
