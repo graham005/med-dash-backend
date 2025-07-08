@@ -8,6 +8,7 @@ export enum UserRole {
 export enum AppointmentStatus {
     BOOKED = 'booked',
     COMPLETED = 'completed',
+    CONFIRMED = 'confirmed',
     CANCELLED = 'cancelled',
     NOSHOW = 'no_show'
 }
@@ -26,7 +27,7 @@ export enum ConsultationStatus {
 }
 
 export enum SlotType {
-    FOLLOW_UP = 'follow_up',
     STANDARD = 'standard',
-    EMERGENCY = 'emergency'
+    EMERGENCY = 'emergency',
+    CONSULTATION = 'consultation'
 }
