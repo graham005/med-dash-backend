@@ -19,23 +19,23 @@ export class AppointmentsService {
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(AvailabilitySlot) private readonly availabilityRepository: Repository<AvailabilitySlot>,
     @InjectRepository(Patient) private readonly patientRepository: Repository<Patient>,
-  ) {}
+  ) { }
   async create(createAppointmentDto: CreateAppointmentDto, user: User) {
     const patient = await this.patientRepository.findOne({
-      where: { user: {id: user.id}}
+      where: { user: { id: user.id } }
     })
     console.log(patient?.id)
-    if(!patient) {
+    if (!patient) {
       throw new NotFoundException('Patient not found')
     }
     const doctor = await this.doctorRepository.findOne({ where: { id: createAppointmentDto.doctorId } })
-    if(!doctor) {
+    if (!doctor) {
       throw new NotFoundException('Doctor not found');
     }
 
     const startTime = new Date(createAppointmentDto.startTime);
     const endTime = new Date(createAppointmentDto.endTime);
-    
+
 
     // 1. Check doctor's availability
     const slot = await this.availabilityRepository.findOne({
@@ -59,33 +59,34 @@ export class AppointmentsService {
     }
 
     const newAppointment = this.appointmentRepository.create({
-      startTime,
-      endTime,
-      doctor,
-      patient,
-      status: createAppointmentDto.status,
       availabilitySlot: slot,
+      doctor: doctor,
+      endTime,
+      patient: patient,
+      reasonForVisit: createAppointmentDto.reasonForVisit,
+      startTime,
+      status: createAppointmentDto.status,
     });
     return this.appointmentRepository.save(newAppointment);
   }
 
   async findAll(user: User) {
-    const loggedInUser = await this.userRepository.findOne({ where: { id: user.id}});
-    if(!loggedInUser) {
+    const loggedInUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!loggedInUser) {
       throw new NotFoundException('Not Found')
     }
     const appointments = await this.appointmentRepository.find({
-       where: { patient: { user: {id: user.id}} },
-       relations: ['patient', 'patient.user']
+      where: { patient: { user: { id: user.id } } },
+      relations: ['patient', 'patient.user', 'doctor', 'doctor.user', 'doctor.availability']
     })
-    if(appointments.length === 0) {
+    if (appointments.length === 0) {
       throw new NotFoundException('No Appointments Found')
     }
     return appointments;
   }
 
   async findOne(id: number, user: User) {
-    
+
     const appointment = await this.appointmentRepository
       .createQueryBuilder('appointment')
       .leftJoinAndSelect('appointment.user', 'user')
@@ -106,10 +107,39 @@ export class AppointmentsService {
         }
       }).catch((error) => {
         console.error('Error updating appointment:', error)
-        throw new Error(`Error uodating appointment: ${error.message}` )
+        throw new Error(`Error uodating appointment: ${error.message}`)
       }).finally(() => {
         return this.findOne(id, user)
       })
+  }
+
+  async updateStatusForDoctor(id: string, status: AppointmentStatus, user: User) {
+    // Find the doctor profile for the logged-in user
+    const doctor = await this.doctorRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user'],
+    });
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+    console.log('Doctor entity:', doctor);
+
+    // Find the appointment by id and ensure it belongs to this doctor
+    const appointment = await this.appointmentRepository.findOne({
+      where: {
+        id: id,
+        doctor: { id: doctor.id },
+      },
+      relations: ['doctor', 'doctor.user', 'patient', 'patient.user', 'availabilitySlot'],
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found for this doctor');
+    }
+
+    appointment.status = status;
+    await this.appointmentRepository.save(appointment);
+    return appointment;
   }
 
   async remove(id: number, user: User) {
@@ -128,25 +158,30 @@ export class AppointmentsService {
   }
 
   async findAllforDoctor(user: User) {
-    const doctor = await this.doctorRepository.findOne({
-      where: {user: {id: user.id}},
-      relations: ['user']
-    })
-    if(!doctor) {
-      throw new NotFoundException('Doctor profile not found')
+    try {
+      const doctor = await this.doctorRepository.findOne({
+        where: { user: { id: user.id } },
+        relations: ['user']
+      })
+      if (!doctor) {
+        throw new NotFoundException('Doctor profile not found')
+      }
+
+      const appointment = await this.appointmentRepository.find({
+        where: { doctor: { id: doctor.id } },
+        relations: ['doctor', 'doctor.user', 'patient', 'patient.user', 'availabilitySlot'],
+      })
+      if (appointment.length === 0) {
+        throw new NotFoundException('No appointments found for')
+      }
+      return appointment
+    } catch (error) {
+      throw new NotFoundException(error)
     }
 
-    const appointment = await this.appointmentRepository.find({
-      where: {doctor: {id: doctor.user.id}},
-      relations: ['doctor', 'doctor.user', 'patient', 'availabilitySlot'],
-    })
-
-    if(appointment.length === 0) {
-      throw new NotFoundException('No appointments found for Doctor')
-    }
   }
 
-  async findOneforDoctor(id: string, user: User ) {
+  async findOneforDoctor(id: string, user: User) {
     // Find the doctor profile for the logged-in user
     const doctor = await this.doctorRepository.findOne({
       where: { user: { id: user.id } },
@@ -160,9 +195,9 @@ export class AppointmentsService {
     const appointment = await this.appointmentRepository.findOne({
       where: {
         id: id,
-        doctor: { id: doctor.user.id },
+        doctor: { id: doctor.id },
       },
-      relations: ['doctor', 'doctor.user', 'patient', 'availabilitySlot'],
+      relations: ['doctor', 'doctor.user', 'patient', 'patient.user', 'availabilitySlot'],
     });
 
     if (!appointment) {

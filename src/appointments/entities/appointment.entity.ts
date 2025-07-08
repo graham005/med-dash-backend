@@ -28,6 +28,9 @@ export class Appointment {
         default: AppointmentStatus.BOOKED
     })
     status: AppointmentStatus;
+
+    @Column()
+    reasonForVisit: string;
     
     @ManyToOne(() => AvailabilitySlot)
     availabilitySlot: AvailabilitySlot;
