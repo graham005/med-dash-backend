@@ -29,6 +29,7 @@ export class AuthController {
     return this.authService.signUp(signUpDto)
   }
 
+ 
   @Roles(UserRole.PHARMACIST, UserRole.PATIENT, UserRole.DOCTOR, UserRole.ADMIN)
   @Get('signout/:id')
   signOut(
@@ -54,7 +55,7 @@ export class AuthController {
   }
 
   @Roles(UserRole.PATIENT)
-  @Post('create-patientprofile')
+  @Post('patient/profile')
   createPatientProfile(
     @UserDecorator() user: any,
     @Body()
@@ -67,7 +68,7 @@ export class AuthController {
   }
 
   @Roles(UserRole.DOCTOR)
-  @Post('create-doctorprofile')
+  @Post('doctor/profile')
   createDoctorProfile(
     @UserDecorator() user: any,
     @Body()
@@ -81,7 +82,7 @@ export class AuthController {
   }
 
   @Roles(UserRole.PHARMACIST)
-  @Post('create-pharmacistprofile')
+  @Post('pharmacist/profile')
   createPharmacistProfile(
     @UserDecorator() user: any,
     @Body()
