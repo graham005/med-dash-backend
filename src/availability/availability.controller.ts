@@ -7,9 +7,10 @@ import { UserRole } from 'src/enums';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { User as UserDecorator} from '../auth/decorators/user.decorator'
 import { User } from 'src/users/entities/user.entity';
+import { AtGuard } from 'src/auth/guards/at.guard';
 
 @Controller('availability')
-@UseGuards(RolesGuard)
+@UseGuards(AtGuard, RolesGuard)
 export class AvailabilityController {
   constructor(private readonly availabilityService: AvailabilityService) {}
 
@@ -28,21 +29,27 @@ export class AvailabilityController {
     return this.availabilityService.findAll(user);
   }
 
+  @Roles(UserRole.PATIENT)
+  @Get('allDoctors')
+  findAllDoctors() {
+    return this.availabilityService.findAllDoctors()
+  }
+
   @Roles(UserRole.DOCTOR)
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.availabilityService.findOne(+id);
+    return this.availabilityService.findOne(id);
   }
 
   @Roles(UserRole.DOCTOR)
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateAvailabilityDto: UpdateAvailabilityDto) {
-    return this.availabilityService.update(+id, updateAvailabilityDto);
+    return this.availabilityService.update(id, updateAvailabilityDto);
   }
 
   @Roles(UserRole.DOCTOR)
   @Delete(':id')
   remove(@Param('id') id: string, @UserDecorator() user: User) {
-    return this.availabilityService.remove(+id, user);
+    return this.availabilityService.remove(id, user);
   }
 }
