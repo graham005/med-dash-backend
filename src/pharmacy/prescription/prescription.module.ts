@@ -6,11 +6,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Prescription } from './entities/prescription.entity';
 import { Patient } from 'src/users/entities/patient.entity';
 import { Doctor } from 'src/users/entities/doctor.entity';
+import { UsersModule } from 'src/users/users.module';
+import { User } from 'src/users/entities/user.entity';
 
 @Module({
   imports: [
     DatabaseModule,
-    TypeOrmModule.forFeature([Prescription, Patient, Doctor])
+    TypeOrmModule.forFeature([Prescription, Patient, Doctor, User]),
+    UsersModule
   ],
   controllers: [PrescriptionController],
   providers: [PrescriptionService],
