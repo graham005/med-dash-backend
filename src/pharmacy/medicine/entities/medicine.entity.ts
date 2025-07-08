@@ -21,6 +21,9 @@ export class Medicine {
     @Column()
     manufacturer: string;
 
+    @Column()
+    expirationDate: Date;
+
     @ManyToOne(() => Pharmacist)
     addedBy: Pharmacist;
 }

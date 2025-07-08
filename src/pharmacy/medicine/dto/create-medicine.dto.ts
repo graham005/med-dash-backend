@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNumber, IsString } from "class-validator";
+import { IsDateString, IsNumber, IsString } from "class-validator";
 
 export class CreateMedicineDto {
     @ApiProperty()
@@ -21,4 +21,8 @@ export class CreateMedicineDto {
     @ApiProperty()
     @IsString()
     manufacturer: string;
+
+    @ApiProperty()
+    @IsDateString()
+    expirationDate: Date;
 }
