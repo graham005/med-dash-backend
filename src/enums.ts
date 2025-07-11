@@ -15,7 +15,10 @@ export enum AppointmentStatus {
 
 export enum OrderStatus {
     PENDING = 'pending',
-    FULFILLED = 'fulfilled',
+    CONFIRMED = 'confirmed',
+    PROCESSING = 'processing',
+    READY = 'ready',
+    COMPLETED = 'completed',
     CANCELLED = 'cancelled'
 }
 
