@@ -6,12 +6,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Pharmacist } from 'src/users/entities/pharmacist.entity';
 import { User } from 'src/users/entities/user.entity';
+import { Doctor } from 'src/users/entities/doctor.entity';
+import { Patient } from 'src/users/entities/patient.entity';
 
 @Injectable()
 export class MedicineService {
   constructor(
     @InjectRepository(Medicine) private readonly medicineRepository: Repository<Medicine>,
-    @InjectRepository(Pharmacist) private readonly pharmacistRepository: Repository<Pharmacist>
+    @InjectRepository(Pharmacist) private readonly pharmacistRepository: Repository<Pharmacist>,
+    @InjectRepository(Doctor) private readonly doctorRepository: Repository<Doctor>,
+    @InjectRepository(Patient) private readonly patientRepository: Repository<Patient>
   ) { }
 
 
@@ -30,50 +34,32 @@ export class MedicineService {
 
     return newMedicine;
   }
-  async findAll(user: User): Promise<Medicine[]> {
-    const pharmacist = await this.pharmacistRepository.findOne({ where: { user: { id: user.id } } })
-    if (!pharmacist) {
-      throw new NotFoundException('Pharmacist profile not found')
-    }
+  async findAll(): Promise<Medicine[]> {
     const medicines = await this.medicineRepository.find({
-      where: {
-        addedBy: {
-          id: pharmacist.user.id
-        }
-      }
+      relations: ['addedBy', 'addedBy.user']
     });
+
     if (medicines.length === 0) {
-      throw new NotFoundException('Medicine out of stock');
+      throw new NotFoundException('No medicines found');
     }
+
     return medicines;
   }
 
-  async findOne(id: string, user: User): Promise<Medicine> {
-    const pharmacist = await this.pharmacistRepository.findOne({ where: { user: { id: user.id } } })
-    if (!pharmacist) {
-      throw new NotFoundException('Pharmacist profile not found')
-    }
+  async findOne(id: string): Promise<Medicine> {
     const medicine = await this.medicineRepository.findOne({
-      where: {
-        id: id,
-        addedBy: {
-          id: pharmacist.user.id
-        }
-      }
+      where: { id },
+      relations: ['addedBy', 'addedBy.user']
     });
 
     if (!medicine) {
-      throw new NotFoundException('Medicine out of stock');
+      throw new NotFoundException('Medicine not found');
     }
 
     return medicine;
   }
 
-  async update(id: string, updateMedicineDto: UpdateMedicineDto, user: User): Promise<string | number | void> {
-    const pharmacist = await this.pharmacistRepository.findOne({ where: { user: { id: user.id } } })
-    if (!pharmacist) {
-      throw new NotFoundException('Pharmacist profile not found')
-    }
+  async update(id: string, updateMedicineDto: UpdateMedicineDto): Promise<string | number | void> {
     return await this.medicineRepository.update(id, updateMedicineDto)
       .then((result) => {
         if (result.affected === 0) {
@@ -84,29 +70,28 @@ export class MedicineService {
         throw new Error(`Error updating medicine: ${error.message}`);
       })
       .finally(() => {
-        return this.findOne(id, user);
+        return this.findOne(id);
       });
   }
 
   async remove(id: string, user: User): Promise<string | void> {
-    // Find the pharmacist profile for the logged-in user
-    const pharmacist = await this.pharmacistRepository.findOne({ where: { user: { id: user.id } } });
+    // Check if user is a pharmacist
+    const pharmacist = await this.pharmacistRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user']
+    });
+
     if (!pharmacist) {
       throw new NotFoundException('Pharmacist profile not found');
     }
 
-    // Find the medicine and ensure it was added by this pharmacist
+    // Allow any pharmacist to remove any medicine
     const medicine = await this.medicineRepository.findOne({
-      where: {
-        id: id,
-        addedBy: {
-          id: pharmacist.user.id
-        }
-      }
+      where: { id }
     });
 
     if (!medicine) {
-      throw new NotFoundException('Medicine not found or you do not have permission to delete it');
+      throw new NotFoundException('Medicine not found');
     }
 
     return await this.medicineRepository.delete(id)

@@ -22,19 +22,18 @@ export class MedicineController {
     return this.medicineService.create(createMedicineDto, user);
   }
 
-  @Roles(UserRole.PHARMACIST)
+  @Roles(UserRole.PHARMACIST, UserRole.DOCTOR, UserRole.PATIENT)
   @Get()
-  findAll(@UserDecorator() user: User) {
-    return this.medicineService.findAll(user);
+  findAll() {
+    return this.medicineService.findAll();
   }
 
   @Roles(UserRole.PHARMACIST)
   @Get(':id')
   findOne(
     @Param('id') id: string,
-    @UserDecorator() user: User
   ) {
-    return this.medicineService.findOne(id, user);
+    return this.medicineService.findOne(id);
   }
 
   @Roles(UserRole.PHARMACIST)
@@ -42,9 +41,8 @@ export class MedicineController {
   update(
     @Param('id') id: string, 
     @Body() updateMedicineDto: UpdateMedicineDto,
-    @UserDecorator() user: User
   ) {
-    return this.medicineService.update(id, updateMedicineDto, user);
+    return this.medicineService.update(id, updateMedicineDto);
   }
 
   @Roles(UserRole.PHARMACIST)
