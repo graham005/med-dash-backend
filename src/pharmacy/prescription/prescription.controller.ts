@@ -22,13 +22,13 @@ export class PrescriptionController {
     return this.prescriptionService.create(createPrescriptionDto, user);
   }
 
-  @Roles(UserRole.DOCTOR)
+  @Roles(UserRole.DOCTOR, UserRole.PATIENT)
   @Get()
   findAll(@UserDecorator() user: User) {
     return this.prescriptionService.findAll(user);
   }
 
-  @Roles(UserRole.DOCTOR)
+  @Roles(UserRole.DOCTOR, UserRole.PATIENT)
   @Get(':id')
   findOne(
     @Param('id') id: string,

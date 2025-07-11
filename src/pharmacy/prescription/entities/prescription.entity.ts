@@ -21,12 +21,16 @@ export class Prescription {
     @Column({type: 'timestamp'})
     date: Date;
 
+    @Column()
+    validityDate: Date;
+
     @Column({type: 'jsonb'})
     medications: Array<{
         medicineId: Medicine["id"];
         dosage: Medicine["dosage"]
         frequency: string;
         duration: string;
+        quantity: number;
     }>
 
     @OneToMany(() => PharmacyOrder, order => order.prescription)
