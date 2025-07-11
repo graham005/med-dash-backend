@@ -14,7 +14,7 @@ export class PharmacyOrderController {
   constructor(private readonly pharmacyOrderService: PharmacyOrderService) {}
 
   @Post()
-  @Roles(UserRole.PHARMACIST)
+  @Roles(UserRole.PATIENT)
   create(
     @Body() createPharmacyOrderDto: CreatePharmacyOrderDto,
     @UserDecorator() user: User
@@ -23,13 +23,13 @@ export class PharmacyOrderController {
   }
 
   @Get()
-  @Roles(UserRole.PHARMACIST)
+  @Roles(UserRole.PHARMACIST, UserRole.PATIENT)
   findAll(@UserDecorator() user: User) {
     return this.pharmacyOrderService.findAll(user);
   }
 
   @Get(':id')
-  @Roles(UserRole.PHARMACIST)
+  @Roles(UserRole.PHARMACIST, UserRole.PATIENT)
   findOne(
     @Param('id') id: string,
     @UserDecorator() user: User
@@ -48,7 +48,7 @@ export class PharmacyOrderController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.PHARMACIST)
+  @Roles(UserRole.PHARMACIST, UserRole.PATIENT)
   remove(
     @Param('id') id: string,
     @UserDecorator() user: User

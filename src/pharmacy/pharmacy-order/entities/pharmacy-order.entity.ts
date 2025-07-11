@@ -2,17 +2,21 @@ import { Pharmacist } from "src/users/entities/pharmacist.entity";
 import { Prescription } from "../../prescription/entities/prescription.entity";
 import { OrderStatus } from "src/enums";
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Patient } from "src/users/entities/patient.entity";
 
 @Entity()
 export class PharmacyOrder {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @ManyToOne(() => Pharmacist)
-    pharmacist: Pharmacist;
-
     @ManyToOne(() => Prescription, prescription => prescription.orders)
     prescription: Prescription;
+
+    @ManyToOne(() => Patient)
+    patient: Patient
+
+    @Column()
+    totalAmount: number
 
     @Column({
         type: 'enum',
@@ -21,6 +25,6 @@ export class PharmacyOrder {
     })
     status: OrderStatus;
 
-    @Column({type: 'timestamp'})
+    @Column({type: 'timestamp', default: () => 'CURRENT_TIMESTAMP'})
     createdAt: Date;
 }

@@ -8,11 +8,12 @@ import { Prescription } from '../prescription/entities/prescription.entity';
 import { Pharmacist } from 'src/users/entities/pharmacist.entity';
 import { UsersModule } from 'src/users/users.module';
 import { User } from 'src/users/entities/user.entity';
+import { Patient } from 'src/users/entities/patient.entity';
 
 @Module({
   imports: [
     DatabaseModule,
-    TypeOrmModule.forFeature([PharmacyOrder, Prescription, Pharmacist, User]),
+    TypeOrmModule.forFeature([PharmacyOrder, Prescription, Pharmacist, User, Patient]),
     UsersModule
   ],
   controllers: [PharmacyOrderController],

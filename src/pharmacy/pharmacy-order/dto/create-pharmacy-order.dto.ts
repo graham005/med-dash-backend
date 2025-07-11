@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEnum, IsString } from "class-validator";
+import { IsEnum, IsNumber, IsString } from "class-validator";
 import { OrderStatus } from "src/enums";
 import { Prescription } from "src/pharmacy/prescription/entities/prescription.entity";
 import { Pharmacist } from "src/users/entities/pharmacist.entity";
@@ -10,7 +10,11 @@ export class CreatePharmacyOrderDto {
     prescriptionId: string;
 
     @ApiProperty()
-    @IsEnum([OrderStatus], {
+    @IsNumber()
+    totalAmount: number;
+
+    @ApiProperty()
+    @IsEnum(OrderStatus, {
         message: 'Valid Order Status Required'
     })
     status: OrderStatus = OrderStatus.PENDING
