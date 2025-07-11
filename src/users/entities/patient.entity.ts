@@ -1,5 +1,6 @@
-import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { User } from "./user.entity";
+import { PharmacyOrder } from "src/pharmacy/pharmacy-order/entities/pharmacy-order.entity";
 
 @Entity()
 export class Patient {
@@ -17,4 +18,7 @@ export class Patient {
     bloodType?: string;
 
     records: string;
+
+    @OneToMany(() => PharmacyOrder, order => order.patient)
+    orders: string;
 }

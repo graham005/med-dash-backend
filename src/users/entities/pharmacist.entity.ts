@@ -17,6 +17,4 @@ export class Pharmacist {
     @Column({type: 'varchar', length: '50'})
     licenceNumber: string;
 
-    @OneToMany(() => PharmacyOrder, order => order.pharmacist)
-    orders: string;
 }
