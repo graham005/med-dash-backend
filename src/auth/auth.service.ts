@@ -4,7 +4,7 @@ import { SignInDto } from './dto/signin.dto';
 import { SignUpDto } from './dto/signup.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
-import { Admin, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt'
 import * as Bcrypt from 'bcrypt'
@@ -13,7 +13,8 @@ import { UserRole } from 'src/enums';
 import { Patient } from 'src/users/entities/patient.entity';
 import { Doctor } from 'src/users/entities/doctor.entity';
 import { Pharmacist } from 'src/users/entities/pharmacist.entity';
-import { AdminDto, DoctorDto, PatientDto, PharmacistDto } from './dto/profiles-dto';
+import { AdminDto, DoctorDto, PatientDto, PharmacistDto, UpdateAdminDto, UpdateDoctorDto, UpdatePatientDto, UpdatePharmacistDto } from './dto/profiles-dto';
+import { Admin } from 'src/users/entities/admin.entity';
 
 @Injectable()
 export class AuthService {
@@ -23,7 +24,7 @@ export class AuthService {
     @InjectRepository(Patient) private readonly patientRepository: Repository<Patient>,
     @InjectRepository(Doctor) private readonly doctorRepository: Repository<Doctor>,
     @InjectRepository(Pharmacist) private readonly pharmacistRepository: Repository<Pharmacist>,
-    //@InjectRepository(Admin) private readonly adminRepository: Repository<Admin>,
+    @InjectRepository(Admin) private readonly adminRepository: Repository<Admin>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService
   ) { }
@@ -195,7 +196,7 @@ export class AuthService {
     return { accessToken, refreshToken: newRefreshToken }
   }
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
+  changePassword(id: number, updateAuthDto: UpdateAuthDto) {
     return `This action updates a #${id} auth`;
   }
 
@@ -203,8 +204,8 @@ export class AuthService {
     user: User,
     patientDto: PatientDto,
   ) {
-    const foundUser = await this.userRepository.findOne({where: {id: user.id}})
-    if(!foundUser){
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } })
+    if (!foundUser) {
       throw new NotFoundException('User not found')
     }
     if (!patientDto) throw new Error('PatientDto is required');
@@ -217,12 +218,40 @@ export class AuthService {
     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
     return { ...savedProfile, user: userWithoutPassword };
   }
+
+  async updatePatientProfile(
+    id: string,
+    updatePatientDto: UpdatePatientDto,
+    user: User
+  ) {
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!foundUser) {
+      console.error('User not found');
+      throw new NotFoundException('User not found');
+    }
+
+    const patient = await this.patientRepository.findOne({ where: { id, user: { id: user.id } }, relations: ['user'] });
+    if (!patient) {
+      throw new NotFoundException('Patient profile not found');
+    }
+
+    await this.patientRepository.update(id, updatePatientDto);
+
+    const updatedPatient = await this.patientRepository.findOne({ where: { id }, relations: ['user'] });
+    if (!updatedPatient) {
+      throw new NotFoundException('Updated patient profile not found');
+    }
+
+    const { passwordHash, ...userWithoutPassword } = updatedPatient.user;
+    return { ...updatedPatient, user: userWithoutPassword };
+  }
+
   async createDoctorProfile(
     user: User,
     doctorDto?: DoctorDto,
   ) {
-    const foundUser = await this.userRepository.findOne({where: {id: user.id}})
-    if(!foundUser){
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } })
+    if (!foundUser) {
       throw new NotFoundException('User not found')
     }
     if (!doctorDto) throw new Error('DoctorDto is required');
@@ -230,105 +259,169 @@ export class AuthService {
       user: foundUser,
       specialization: doctorDto.specialization,
       qualification: doctorDto.qualification,
-      licenceNumber: doctorDto.licenseNumber,
+      licenseNumber: doctorDto.licenseNumber,
     });
     const savedProfile = await this.doctorRepository.save(newProfile);
     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
     return { ...savedProfile, user: userWithoutPassword };
-
   }
+
+  async updateDoctorProfile(
+    id: string,
+    updateDoctorDto: UpdateDoctorDto,
+    user: User
+  ) {
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!foundUser) {
+      console.error('User not found');
+      throw new NotFoundException('User not found');
+    }
+
+    const doctor = await this.doctorRepository.findOne({ where: { id, user: { id: user.id } }, relations: ['user'] });
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    await this.doctorRepository.update(id, updateDoctorDto);
+
+    const updatedDoctor = await this.doctorRepository.findOne({ where: { id }, relations: ['user'] });
+    if (!updatedDoctor) {
+      throw new NotFoundException('Updated doctor profile not found');
+    }
+
+    const { passwordHash, ...userWithoutPassword } = updatedDoctor.user;
+    return { ...updatedDoctor, user: userWithoutPassword };
+  }
+
   async createPharmacistProfile(
     user: User,
     pharmacistDto?: PharmacistDto,
   ) {
-    const foundUser = await this.userRepository.findOne({where: {id: user.id}})
-    if(!foundUser){
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } })
+    if (!foundUser) {
       throw new NotFoundException('User not found')
     }
     if (!pharmacistDto) throw new Error('PharmacistDto is required');
     const newProfile = this.pharmacistRepository.create({
       user: foundUser,
       pharmacyName: pharmacistDto.pharmacyName,
-      licenceNumber: pharmacistDto.licenceNumber,
+      licenseNumber: pharmacistDto.licenseNumber,
     });
     const savedProfile = await this.pharmacistRepository.save(newProfile);
     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
     return { ...savedProfile, user: userWithoutPassword };
 
   }
-  // async createAdminProfile(
-  //   //adminDto: AdminDto
-  // ) {
-  //       if (!pharmacistDto) throw new Error('PharmacistDto is required');
-  //       const newProfile = this.pharmacistRepository.create({
-  //         user,
-  //         pharmacyName: pharmacistDto.pharmacyName,
-  //         licenceNumber: pharmacistDto.licenceNumber,
-  //       });
-  //       const savedProfile = await this.pharmacistRepository.save(newProfile);
-  //       const { passwordHash, ...userWithoutPassword } = savedProfile.user;
-  //       return { ...savedProfile, user: userWithoutPassword };
 
-  // }
-  // async editProfile(
-  //   user: User,
-  //   patientDto: PatientDto,
-  //   doctorDto: DoctorDto,
-  //   pharmacistDto: PharmacistDto,
-  //   adminDto: AdminDto
-  // ) {
-  //   if (user.userRole === UserRole.PATIENT) {
-  //     const newProfile = this.patientRepository.update({
-  //       user,
-  //       dateOfBirth: patientDto.dateOfBirth,
-  //       bloodType: patientDto.bloodType
-  //     });
-  //     const savedProfile = await this.patientRepository.save(newProfile);
-  //     // Exclude password from user before returning
-  //     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
-  //     return { ...savedProfile, user: userWithoutPassword };
-  //   }
+  async updatePharmacistProfile(
+    id: string,
+    updatePharmacistDto: UpdatePharmacistDto,
+    user: User
+  ) {
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!foundUser) {
+      console.error('User not found');
+      throw new NotFoundException('User not found');
+    }
 
-  //   if (user.userRole === UserRole.DOCTOR) {
-  //     const newProfile = this.doctorRepository.update({
-  //       user,
-  //       specialization: doctorDto.specialization,
-  //       qualification: doctorDto.qualification,
-  //       licenceNumber: doctorDto.licenseNumber
-  //     });
-  //     const savedProfile = await this.doctorRepository.save(newProfile);
-  //     // Exclude password from user before returning
-  //     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
-  //     return { ...savedProfile, user: userWithoutPassword };
-  //   }
+    const pharmacist = await this.pharmacistRepository.findOne({ where: { id, user: { id: user.id } }, relations: ['user'] });
+    if (!pharmacist) {
+      throw new NotFoundException('Pharmacist profile not found');
+    }
 
-  //   if (user.userRole === UserRole.PHARMACIST) {
-  //     const newProfile = this.pharmacistRepository.update({
-  //       user,
-  //       pharmacyName: pharmacistDto.pharmacyName,
-  //       licenceNumber: pharmacistDto.licenceNumber
-  //     });
-  //     const savedProfile = await this.pharmacistRepository.save(newProfile);
-  //     // Exclude password from user before returning
-  //     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
-  //     return { ...savedProfile, user: userWithoutPassword };
-  //   }
+    await this.pharmacistRepository.update(id, updatePharmacistDto);
 
-  //   if (user.userRole === UserRole.ADMIN) {
-  //     const newProfile = this.adminRepository.update({
-  //       user,
-  //       department: adminDto.department,
-  //       isSuperAdmin: false
-  //     });
-  //     const savedProfile = await this.adminRepository.save(newProfile);
-  //     // Exclude password from user before returning
-  //     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
-  //     return { ...savedProfile, user: userWithoutPassword };
-  //   }
-  // }
+    const updatedPharmacist = await this.pharmacistRepository.findOne({ where: { id }, relations: ['user'] });
+    if (!updatedPharmacist) {
+      throw new NotFoundException('Updated pharmacist profile not found');
+    }
 
-  async getDetails(user: User){
-    const foundUser = await this.userRepository.findOne({where: {id: user.id}})
+    const { passwordHash, ...userWithoutPassword } = updatedPharmacist.user;
+    return { ...updatedPharmacist, user: userWithoutPassword };
+  }
+
+  async createAdminProfile(
+    user: User,
+    adminDto: AdminDto,
+  ) {
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } })
+    if (!foundUser) {
+      throw new NotFoundException('User not found')
+    }
+    const newProfile = this.adminRepository.create({
+      user: foundUser,
+      department: adminDto.department,
+    })
+    const savedProfile = await this.adminRepository.save(newProfile);
+    const { passwordHash, ...userWithoutPassword } = savedProfile.user;
+    return { ...savedProfile, user: userWithoutPassword };
+  }
+
+  async updateAdminProfile(
+    id: string,
+    updateAdminDto: UpdateAdminDto,
+    user: User
+  ) {
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!foundUser) {
+      console.error('User not found');
+      throw new NotFoundException('User not found');
+    }
+
+    const admin = await this.adminRepository.findOne({ where: { id, user: { id: user.id } }, relations: ['user'] });
+    if (!admin) {
+      throw new NotFoundException('Admin profile not found');
+    }
+
+    await this.adminRepository.update(id, updateAdminDto);
+
+    const updatedAdmin = await this.adminRepository.findOne({ where: { id }, relations: ['user'] });
+    if (!updatedAdmin) {
+      throw new NotFoundException('Updated admin profile not found');
+    }
+
+    const { passwordHash, ...userWithoutPassword } = updatedAdmin.user;
+    return { ...updatedAdmin, user: userWithoutPassword };
+  }
+
+  async getProfile(user: User) {
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!foundUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    switch (foundUser.userRole) {
+      case UserRole.PATIENT: {
+        const patient = await this.patientRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
+        if (!patient) throw new NotFoundException('Patient profile not found');
+        const { passwordHash, ...userWithoutPassword } = patient.user;
+        return { ...patient, user: userWithoutPassword };
+      }
+      case UserRole.DOCTOR: {
+        const doctor = await this.doctorRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
+        if (!doctor) throw new NotFoundException('Doctor profile not found');
+        const { passwordHash, ...userWithoutPassword } = doctor.user;
+        return { ...doctor, user: userWithoutPassword };
+      }
+      case UserRole.PHARMACIST: {
+        const pharmacist = await this.pharmacistRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
+        if (!pharmacist) throw new NotFoundException('Pharmacist profile not found');
+        const { passwordHash, ...userWithoutPassword } = pharmacist.user;
+        return { ...pharmacist, user: userWithoutPassword };
+      }
+      case UserRole.ADMIN: {
+        const admin = await this.adminRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
+        if (!admin) throw new NotFoundException('Admin profile not found');
+        const { passwordHash, ...userWithoutPassword } = admin.user;
+        return { ...admin, user: userWithoutPassword };
+      }
+      default:
+        throw new NotFoundException('Profile not found for this role');
+    }
+  }
+
+  async getDetails(user: User) {
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } })
     return foundUser
   }
 }

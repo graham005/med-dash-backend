@@ -5,7 +5,7 @@ import { UpdateAuthDto } from './dto/update-auth.dto';
 import { SignInDto } from './dto/signin.dto';
 import { SignUpDto } from './dto/signup.dto';
 import { User as UserDecorator } from '../auth/decorators/user.decorator'
-import { PatientDto, DoctorDto, PharmacistDto, AdminDto } from './dto/profiles-dto';
+import { PatientDto, DoctorDto, PharmacistDto, AdminDto, UpdatePatientDto } from './dto/profiles-dto';
 import { Public } from './decorators/public.decorator';
 import { RolesGuard } from './guards/roles.guard';
 import { UserRole } from 'src/enums';
@@ -33,7 +33,7 @@ export class AuthController {
   @Roles(UserRole.PHARMACIST, UserRole.PATIENT, UserRole.DOCTOR, UserRole.ADMIN)
   @Get('signout/:id')
   signOut(
-    @UserDecorator() user: any
+    @UserDecorator() user: User
   ) {
     return this.authService.signOut(user);
   }
@@ -41,7 +41,7 @@ export class AuthController {
   @Roles(UserRole.PHARMACIST, UserRole.PATIENT, UserRole.DOCTOR, UserRole.ADMIN)
   @Get('refresh')
   refreshToken(
-    @UserDecorator() user: any,
+    @UserDecorator() user: User,
     @Query('id') id: string,
     @Query('refreshToken') refreshToken: string
   ) {
@@ -50,14 +50,14 @@ export class AuthController {
 
   @Roles(UserRole.PHARMACIST, UserRole.PATIENT, UserRole.DOCTOR, UserRole.ADMIN)
   @Patch('change-password')
-  update(@Param('id') id: string, @Body() updateAuthDto: UpdateAuthDto) {
-    return this.authService.update(+id, updateAuthDto);
+  changePassword(@Param('id') id: string, @Body() updateAuthDto: UpdateAuthDto) {
+    return this.authService.changePassword(+id, updateAuthDto);
   }
 
   @Roles(UserRole.PATIENT)
   @Post('patient/profile')
   createPatientProfile(
-    @UserDecorator() user: any,
+    @UserDecorator() user: User,
     @Body()
     patientDto: PatientDto,
   ) {
@@ -70,7 +70,7 @@ export class AuthController {
   @Roles(UserRole.DOCTOR)
   @Post('doctor/profile')
   createDoctorProfile(
-    @UserDecorator() user: any,
+    @UserDecorator() user: User,
     @Body()
     doctorDto: DoctorDto,
   ) {
@@ -84,7 +84,7 @@ export class AuthController {
   @Roles(UserRole.PHARMACIST)
   @Post('pharmacist/profile')
   createPharmacistProfile(
-    @UserDecorator() user: any,
+    @UserDecorator() user: User,
     @Body()
     pharmacistDto: PharmacistDto,
   ) {
@@ -94,38 +94,64 @@ export class AuthController {
     )
   }
 
+  @Roles(UserRole.ADMIN)
+  @Post('admin/profile')
+  createAdminProfile(
+    @UserDecorator() user: User,
+    @Body()
+    adminDto: AdminDto
+  ) {
+    return this.authService.createAdminProfile(
+      user,
+      adminDto,
+    )
+  }
+
+  @Patch('patient/profile')
+  updatePatientProfile(
+    @Param('id') id: string,
+    @UserDecorator() user: User,
+    @Body() updatePatientDto: UpdatePatientDto
+  ): Promise<any> {
+    return this.authService.updatePatientProfile(id, updatePatientDto, user);
+  }
+
+  @Patch('doctor/profile')
+  updateDoctorProfile(
+    @Param('id') id: string,
+    @UserDecorator() user: User,
+    @Body() doctorDto: DoctorDto
+  ): Promise<any> {
+    return this.authService.updateDoctorProfile(id, doctorDto, user);
+  }
+
+  @Patch('pharmacist/profile')
+  updatePharmacistProfile(
+    @Param('id') id: string,
+    @UserDecorator() user: User,
+    @Body() pharmacistDto: PharmacistDto
+  ): Promise<any> {
+    return this.authService.updatePharmacistProfile(id, pharmacistDto, user);
+  }
+
+  @Patch('admin/profile')
+  updateAdminProfile(
+    @Param('id') id: string,
+    @UserDecorator() user: User,
+    @Body() adminDto: AdminDto
+  ): Promise<any> {
+    return this.authService.updateAdminProfile(id, adminDto, user);
+  }
+  @Roles(UserRole.PATIENT, UserRole.DOCTOR, UserRole.PHARMACIST, UserRole.ADMIN)
+  @Get('profile')
+  getProfile(@UserDecorator() user: User) {
+    return this.authService.getProfile(user);
+  }
+
   @Get('me')
   getDetails(@UserDecorator() user: User){
     return this.authService.getDetails(user)
   }
-  // @Post('create-adminprofile')
-  // createAdminProfile(
-  //   @UserDecorator() user: any,
-  //   @Body()
-  //   adminDto: AdminDto
-  // ) {
-  //   return this.authService.createAdminProfile(
-  //     user,
-  //     //adminDto
-  //   )
-  // }
 
-  // @Patch()
-  // editProfile(
-  //   @UserDecorator() user: any,
-  //   @Body()
-  //   patientDto: PatientDto,
-  //   doctorDto: DoctorDto,
-  //   pharmacistDto: PharmacistDto,
-  //   adminDto: AdminDto
-  // ) {
-  //   return this.authService.editProfile(
-  //     user,
-  //     patientDto,
-  //     doctorDto,
-  //     pharmacistDto,
-  //     adminDto
-  //   )
-  // }
 
 }

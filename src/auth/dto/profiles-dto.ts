@@ -1,3 +1,4 @@
+import { PartialType } from "@nestjs/mapped-types";
 import { ApiProperty } from "@nestjs/swagger";
 import { IsDateString, IsString, Matches } from "class-validator";
 
@@ -35,7 +36,7 @@ export class PharmacistDto {
 
     @ApiProperty()
     @IsString()
-    licenceNumber: string;
+    licenseNumber: string;
 }
 
 export class AdminDto {
@@ -44,4 +45,9 @@ export class AdminDto {
     department: string;
 
 }
+
+export class UpdatePatientDto extends PartialType(PatientDto) {}
+export class UpdateDoctorDto extends PartialType(DoctorDto) {}
+export class UpdatePharmacistDto extends PartialType(PharmacistDto) {}
+export class UpdateAdminDto extends PartialType(AdminDto) {}
 
