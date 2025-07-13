@@ -18,7 +18,7 @@ export class Doctor {
     qualification: string;
 
     @Column({type: 'varchar', length: '50'})
-    licenceNumber: string;
+    licenseNumber: string;
 
     @OneToMany(() => AvailabilitySlot, slot => slot.doctor)
     availability: AvailabilitySlot;

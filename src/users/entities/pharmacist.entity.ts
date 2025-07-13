@@ -15,6 +15,6 @@ export class Pharmacist {
     pharmacyName: string;
 
     @Column({type: 'varchar', length: '50'})
-    licenceNumber: string;
+    licenseNumber: string;
 
 }

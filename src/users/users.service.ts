@@ -68,23 +68,27 @@ export class UsersService {
     return users.map(user => this.excludePassword(user))
   }
 
-  async findOne(id: number): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { id: id.toString() } })
+  async findOne(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id} })
     if(!user) throw new NotFoundException('Users not found')
     
     return user;
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto): Promise<Partial<User> | string> {
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<Partial<User> | string> {
     if (updateUserDto.password) {
       updateUserDto.password = await this.hashData(updateUserDto.password)
     }
     await this.userRepository.update(id, updateUserDto);
 
-    return await this.findOne(id)
+    const updatedUser = await this.userRepository.findOne({ where: { id } });
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+    return this.excludePassword(updatedUser);
   }
 
-  remove(id: number) {
+  remove(id: string) {
     return this.userRepository.delete(id)
       .then((result) => {
         if (result.affected === 0){

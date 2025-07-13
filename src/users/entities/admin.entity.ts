@@ -1,11 +1,12 @@
-import { Column, JoinColumn, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { User } from "./user.entity";
 
+@Entity()
 export class Admin {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @OneToOne(() => User)
+    @OneToOne(() => User, {cascade:true})
     @JoinColumn()
     user: User;
 
