@@ -34,3 +34,9 @@ export enum SlotType {
     EMERGENCY = 'emergency',
     CONSULTATION = 'consultation'
 }
+
+export enum UserStatus {
+    ACTIVE = 'active',
+    PENDING = 'pending',
+    SUSPENDED = 'suspended'
+}

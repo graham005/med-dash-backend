@@ -15,6 +15,10 @@ import { ConfigModule } from '@nestjs/config';
 import { LoggerMiddleware } from './logger.middleware';
 import { APP_GUARD } from '@nestjs/core';
 import { AtGuard } from './auth/guards/at.guard';
+import { HealthBotModule } from './health-bot/health-bot.module';
+import { PaymentsModule } from './payments/payments.module';
+import { ZoomService } from './zoom/zoom.service';
+import {  MessagingModule } from './message/message.module';
 
 @Module({
   imports: [
@@ -23,7 +27,8 @@ import { AtGuard } from './auth/guards/at.guard';
       envFilePath: '.env'
     }),
     AuthModule, UsersModule, AppointmentsModule,DatabaseModule, AvailabilityModule,
-    MedicineModule, PrescriptionModule, PharmacyOrderModule, ConsultationModule, EPrescriptionModule
+    MedicineModule, PrescriptionModule, PharmacyOrderModule, ConsultationModule, EPrescriptionModule, 
+    HealthBotModule, PaymentsModule, MessagingModule
   ],
   controllers: [AppController],
   providers: [AppService,
@@ -31,12 +36,13 @@ import { AtGuard } from './auth/guards/at.guard';
       provide: APP_GUARD,
       useClass: AtGuard
     },
+    ZoomService,
   ],
 })
 export class AppModule implements NestModule{
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(LoggerMiddleware)
-      .forRoutes('appointments', 'auth', 'availability', 'medicine', 'pharmacyOrders', 'prescription', 'consultation', 'e-prescription', 'users')
+      .forRoutes('appointments', 'auth', 'availability', 'medicine', 'pharmacyOrders', 'prescription', 'consultation', 'e-prescription', 'users', 'payments')
   }
 }
