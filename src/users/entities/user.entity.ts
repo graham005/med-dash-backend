@@ -1,4 +1,4 @@
-import { UserRole } from "src/enums";
+import { UserRole, UserStatus } from "src/enums";
 import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
@@ -27,6 +27,13 @@ export class User {
 
     @Column({nullable: true})
     phoneNumber?: string;
+
+    @Column({
+        type: 'enum',
+        enum: UserStatus,
+        default: UserStatus.PENDING
+    })
+    userStatus: UserStatus
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP'})
     createdAt: Date;

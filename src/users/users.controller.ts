@@ -19,6 +19,12 @@ export class UsersController {
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
+  
+  @Get('getAllProfiles')
+  @Roles(UserRole.ADMIN)
+  getAllProfiles(){
+    return this.usersService.getAllProfiles()
+  }
 
   @Get()
   @Roles(UserRole.ADMIN)
@@ -31,6 +37,7 @@ export class UsersController {
   findAll(@Query('userRole') userRole: UserRole) {
     return this.usersService.findAll(userRole);
   }
+
 
   @Roles(UserRole.ADMIN)
   @Get(':id')

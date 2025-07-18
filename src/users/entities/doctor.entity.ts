@@ -20,6 +20,15 @@ export class Doctor {
     @Column({type: 'varchar', length: '50'})
     licenseNumber: string;
 
+    @Column()
+    yearsOfExperience: number
+
+    @Column()
+    hospitalAffiliation: string
+
     @OneToMany(() => AvailabilitySlot, slot => slot.doctor)
     availability: AvailabilitySlot;
+
+    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+    consultationFee: number;
 }

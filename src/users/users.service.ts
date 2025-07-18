@@ -7,11 +7,19 @@ import { User } from './entities/user.entity';
 import * as Bcrypt from 'bcrypt'
 import { UserRole } from 'src/enums';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { Doctor } from './entities/doctor.entity';
+import { Patient } from './entities/patient.entity';
+import { Pharmacist } from './entities/pharmacist.entity';
+import { Admin } from './entities/admin.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @InjectRepository(Doctor) private readonly doctorRepository: Repository<Doctor>,
+    @InjectRepository(Patient) private readonly patientRepository: Repository<Patient>,
+    @InjectRepository(Pharmacist) private readonly pharmacistRepository: Repository<Pharmacist>,
+    @InjectRepository(Admin) private readonly adminRepository: Repository<Admin>,
   ) { }
 
   // Hash password using bycrypt
@@ -100,5 +108,45 @@ export class UsersService {
         console.error('Error deleting user:', error);
         throw new Error(`Error deleting user: ${error.message}`)
       })
+  }
+
+  async getAllProfiles() {
+    const users = await this.userRepository.find();
+    console.log(users)
+    if (!users.length) {
+     console.error('No users found');
+    }
+
+    // Fetch all profiles
+    const [doctors, patients, pharmacists, admins] = await Promise.all([
+      this.doctorRepository.find({ relations: ['user'] }),
+      this.patientRepository.find({ relations: ['user'] }),
+      this.pharmacistRepository.find({ relations: ['user'] }),
+      this.adminRepository.find({ relations: ['user'] }),
+    ]);
+
+    // Helper to find profile by user id
+    const findProfile = (userId: string) => {
+      const doctor = doctors.find(d => d.user.id === userId);
+      if (doctor) return { role: 'DOCTOR', profile: doctor };
+      const patient = patients.find(p => p.user.id === userId);
+      if (patient) return { role: 'PATIENT', profile: patient };
+      const pharmacist = pharmacists.find(ph => ph.user.id === userId);
+      if (pharmacist) return { role: 'PHARMACIST', profile: pharmacist };
+      const admin = admins.find(a => a.user.id === userId);
+      if (admin) return { role: 'ADMIN', profile: admin };
+      return null;
+    };
+
+    // Map users to their profiles
+    return users.map(user => {
+      const { passwordHash, ...userWithoutPassword } = user;
+      const profileInfo = findProfile(user.id);
+      return {
+        ...userWithoutPassword,
+        profile: profileInfo ? profileInfo.profile : null,
+        profileRole: profileInfo ? profileInfo.role : null,
+      };
+    });
   }
 }
