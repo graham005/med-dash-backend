@@ -107,7 +107,7 @@ export class AuthController {
     )
   }
 
-  @Patch('patient/profile')
+  @Patch('patient/profile/:id')
   updatePatientProfile(
     @Param('id') id: string,
     @UserDecorator() user: User,
@@ -116,7 +116,7 @@ export class AuthController {
     return this.authService.updatePatientProfile(id, updatePatientDto, user);
   }
 
-  @Patch('doctor/profile')
+  @Patch('doctor/profile/:id')
   updateDoctorProfile(
     @Param('id') id: string,
     @UserDecorator() user: User,
@@ -125,7 +125,7 @@ export class AuthController {
     return this.authService.updateDoctorProfile(id, doctorDto, user);
   }
 
-  @Patch('pharmacist/profile')
+  @Patch('pharmacist/profile/:id')
   updatePharmacistProfile(
     @Param('id') id: string,
     @UserDecorator() user: User,
@@ -134,7 +134,7 @@ export class AuthController {
     return this.authService.updatePharmacistProfile(id, pharmacistDto, user);
   }
 
-  @Patch('admin/profile')
+  @Patch('admin/profile/:id')
   updateAdminProfile(
     @Param('id') id: string,
     @UserDecorator() user: User,

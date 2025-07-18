@@ -260,6 +260,8 @@ export class AuthService {
       specialization: doctorDto.specialization,
       qualification: doctorDto.qualification,
       licenseNumber: doctorDto.licenseNumber,
+      yearsOfExperience: doctorDto.yearsOfExperience, // <-- ensure this is present
+      hospitalAffiliation: doctorDto.hospitalAffiliation,
     });
     const savedProfile = await this.doctorRepository.save(newProfile);
     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
@@ -346,6 +348,7 @@ export class AuthService {
   ) {
     const foundUser = await this.userRepository.findOne({ where: { id: user.id } })
     if (!foundUser) {
+      console.error('User not found')
       throw new NotFoundException('User not found')
     }
     const newProfile = this.adminRepository.create({
@@ -364,7 +367,6 @@ export class AuthService {
   ) {
     const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
     if (!foundUser) {
-      console.error('User not found');
       throw new NotFoundException('User not found');
     }
 
@@ -373,7 +375,20 @@ export class AuthService {
       throw new NotFoundException('Admin profile not found');
     }
 
-    await this.adminRepository.update(id, updateAdminDto);
+    // Separate user fields from admin fields
+    const { firstName, lastName, email, ...adminFields } = updateAdminDto;
+
+    // Update user fields if present
+    if (firstName || lastName || email) {
+      await this.userRepository.update(foundUser.id, {
+        ...(firstName && { firstName }),
+        ...(lastName && { lastName }),
+        ...(email && { email }),
+      });
+    }
+
+    // Update admin fields
+    await this.adminRepository.update(id, adminFields);
 
     const updatedAdmin = await this.adminRepository.findOne({ where: { id }, relations: ['user'] });
     if (!updatedAdmin) {
@@ -421,7 +436,37 @@ export class AuthService {
   }
 
   async getDetails(user: User) {
-    const foundUser = await this.userRepository.findOne({ where: { id: user.id } })
-    return foundUser
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!foundUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    let profile: Patient | Doctor | Pharmacist | Admin | null = null;
+
+    switch (foundUser.userRole) {
+      case UserRole.PATIENT: {
+        profile = await this.patientRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
+        break;
+      }
+      case UserRole.DOCTOR: {
+        profile = await this.doctorRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
+        break;
+      }
+      case UserRole.PHARMACIST: {
+        profile = await this.pharmacistRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
+        break;
+      }
+      case UserRole.ADMIN: {
+        profile = await this.adminRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
+        break;
+      }
+      default:
+        profile = null;
+    }
+
+    return {
+      user: this.excludePassword(foundUser),
+      profile,
+    };
   }
 }
