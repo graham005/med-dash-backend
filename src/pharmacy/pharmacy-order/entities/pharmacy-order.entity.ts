@@ -18,6 +18,9 @@ export class PharmacyOrder {
     @Column()
     totalAmount: number
 
+    @Column({nullable: true})
+    quantity: number
+
     @Column({
         type: 'enum',
         enum: OrderStatus,

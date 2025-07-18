@@ -38,7 +38,7 @@ export class PharmacyOrderController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.PHARMACIST)
+  @Roles(UserRole.PHARMACIST, UserRole.PATIENT)
   update(
     @Param('id') id: string, 
     @Body() updatePharmacyOrderDto: UpdatePharmacyOrderDto,

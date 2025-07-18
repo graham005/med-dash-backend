@@ -128,27 +128,95 @@ export class PharmacyOrderService {
   }
 
   async update(id: string, updatePharmacyOrderDto: UpdatePharmacyOrderDto, user: User) {
+    // Check if user is a patient
     const patient = await this.patientRepository.findOne({
-      where: {
-        user: {
-          id: user.id
+      where: { user: { id: user.id } },
+      relations: ['user']
+    });
+
+    if (patient) {
+      // Patient: can only update their own orders and only the status field
+      const pharmacyorder = await this.pharmacyorderRepository.findOne({
+        where: {
+          id,
+          patient: { id: patient.id }
+        }
+      });
+
+      if (!pharmacyorder) {
+        throw new NotFoundException('PharmacyOrder not found');
+      }
+
+      // Patients can only update the status field to cancel orders
+      const allowedPatientUpdates: Partial<UpdatePharmacyOrderDto> = {};
+      if (updatePharmacyOrderDto.status) {
+        // Validate patient can only set certain statuses
+        const allowedStatusesForPatient = [OrderStatus.CANCELLED, OrderStatus.CONFIRMED];
+        if (allowedStatusesForPatient.includes(updatePharmacyOrderDto.status)) {
+          allowedPatientUpdates.status = updatePharmacyOrderDto.status;
+        } else {
+          throw new Error('Patients can only cancel orders');
         }
       }
-    })
-    if (!patient) {
-      throw new NotFoundException('Patient profile not found')
-    }
-    return await this.pharmacyorderRepository.update(id, updatePharmacyOrderDto)
-      .then((result) => {
+
+      if (Object.keys(allowedPatientUpdates).length === 0) {
+        throw new Error('No valid fields to update. Patients can only update status to cancel orders');
+      }
+
+      try {
+        const result = await this.pharmacyorderRepository.update(id, allowedPatientUpdates);
+
         if (result.affected === 0) {
-          throw new NotFoundException('PharmacyOrder not found.')
+          throw new NotFoundException('PharmacyOrder not found');
         }
-      }).catch((error) => {
-        console.error('Error updating pharmacyorder:', error)
-        throw new Error(`Error uodating pharmacyorder: ${error.message}`)
-      }).finally(() => {
-        return this.findOne(id, user)
-      })
+
+        return await this.findOne(id, user);
+      } catch (error) {
+        console.error('Error updating pharmacy order:', error);
+        throw new Error(`Error updating pharmacy order: ${error.message}`);
+      }
+    }
+
+    // Check if user is a pharmacist
+    const pharmacist = await this.pharmacistRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user']
+    });
+
+    if (pharmacist) {
+      // Pharmacist: can update any order and all fields
+      const pharmacyorder = await this.pharmacyorderRepository.findOne({
+        where: { id }
+      });
+
+      if (!pharmacyorder) {
+        throw new NotFoundException('PharmacyOrder not found');
+      }
+
+      // Validate status transitions for pharmacists
+      if (updatePharmacyOrderDto.status) {
+        const validTransitions = this.getValidStatusTransitions(pharmacyorder.status);
+        if (!validTransitions.includes(updatePharmacyOrderDto.status)) {
+          throw new Error(`Invalid status transition from ${pharmacyorder.status} to ${updatePharmacyOrderDto.status}`);
+        }
+      }
+
+      try {
+        const result = await this.pharmacyorderRepository.update(id, updatePharmacyOrderDto);
+
+        if (result.affected === 0) {
+          throw new NotFoundException('PharmacyOrder not found');
+        }
+
+        return await this.findOne(id, user);
+      } catch (error) {
+        console.error('Error updating pharmacy order:', error);
+        throw new Error(`Error updating pharmacy order: ${error.message}`);
+      }
+    }
+
+    // If neither patient nor pharmacist, deny access
+    throw new NotFoundException('Profile not found or insufficient permissions');
   }
 
   async remove(id: string, user: User): Promise<PharmacyOrder> {
@@ -199,5 +267,18 @@ export class PharmacyOrderService {
 
     // If neither, deny access
     throw new NotFoundException('Profile not found');
+  }
+
+  private getValidStatusTransitions(currentStatus: OrderStatus): OrderStatus[] {
+    const transitions = {
+      [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+      [OrderStatus.CONFIRMED]: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
+      [OrderStatus.PROCESSING]: [OrderStatus.READY, OrderStatus.CANCELLED],
+      [OrderStatus.READY]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+      [OrderStatus.COMPLETED]: [], // Final state
+      [OrderStatus.CANCELLED]: [] // Final state
+    };
+
+    return transitions[currentStatus] || [];
   }
 }
