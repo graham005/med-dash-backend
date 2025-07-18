@@ -8,6 +8,7 @@ import { DatabaseModule } from 'src/database/database.module';
 import { User } from 'src/users/entities/user.entity';
 import { AvailabilitySlot } from 'src/availability/entities/availability.entity';
 import { Patient } from 'src/users/entities/patient.entity';
+import { ZoomService } from 'src/zoom/zoom.service';
 
 @Module({
   imports: [
@@ -15,6 +16,6 @@ import { Patient } from 'src/users/entities/patient.entity';
     TypeOrmModule.forFeature([Appointment, Doctor, User, AvailabilitySlot, Patient])
   ],
   controllers: [AppointmentsController],
-  providers: [AppointmentsService],
+  providers: [AppointmentsService, ZoomService],
 })
 export class AppointmentsModule {}

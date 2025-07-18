@@ -37,7 +37,7 @@ export class AppointmentsController {
   @Roles(UserRole.PATIENT)
   @Get(':id')
   findOne(@Param('id') id: string, @UserDecorator() user: User) {
-    return this.appointmentsService.findOne(+id, user);
+    return this.appointmentsService.findOne(id, user);
   }
 
   @Roles(UserRole.DOCTOR)
@@ -53,7 +53,7 @@ export class AppointmentsController {
     @Body() updateAppointmentDto: UpdateAppointmentDto,
     @UserDecorator() user: User
   ) {
-    return this.appointmentsService.update(+id, updateAppointmentDto, user);
+    return this.appointmentsService.update(id, updateAppointmentDto, user);
   }
 
   @Roles(UserRole.DOCTOR)
@@ -69,7 +69,7 @@ export class AppointmentsController {
   @Roles(UserRole.PATIENT, UserRole.DOCTOR)
   @Delete(':id')
   remove(@Param('id') id: string, @UserDecorator() user: User) {
-    return this.appointmentsService.remove(+id, user);
+    return this.appointmentsService.remove(id, user);
   }
 
 }

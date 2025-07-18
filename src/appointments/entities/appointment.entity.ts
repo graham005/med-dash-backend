@@ -31,6 +31,9 @@ export class Appointment {
 
     @Column()
     reasonForVisit: string;
+
+    @Column({nullable: true})
+    meetingUrl?: string;
     
     @ManyToOne(() => AvailabilitySlot)
     availabilitySlot: AvailabilitySlot;
