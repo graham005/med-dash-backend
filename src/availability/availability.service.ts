@@ -68,7 +68,8 @@ export class AvailabilityService {
       const newAvailabilitySlot = this.availabilityRepository.create({
         startTime: startTime,
         endTime: endTime,
-        type: createAvailabilityDto.type || 'STANDARD',
+        type: createAvailabilityDto.type || 'standard',
+        isBooked: false,
         doctor
       });
 

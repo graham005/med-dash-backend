@@ -15,6 +15,9 @@ export class AvailabilitySlot {
 
     @Column({type: 'timestamp'})
     endTime: Date;
+    
+    @Column()
+    isBooked: boolean;
 
     @Column({
         type: 'enum',
