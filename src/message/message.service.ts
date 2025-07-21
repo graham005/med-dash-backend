@@ -132,7 +132,6 @@ export class MessagingService {
       participant: { id: string; name: string; role: string };
       orderDetails: {
         status: any;
-        quantity: number;
         totalPrice: number;
         prescription: any;
       };
@@ -164,7 +163,6 @@ export class MessagingService {
         participant: { id: string; name: string; role: string };
         orderDetails: {
           status: any;
-          quantity: number;
           totalPrice: number;
           prescription: any;
         };
@@ -275,7 +273,6 @@ export class MessagingService {
             },
             orderDetails: {
               status: order.status,
-              quantity: order.quantity,
               totalPrice: order.totalAmount,
               prescription: order.prescription,
             },
@@ -309,7 +306,6 @@ export class MessagingService {
             },
             orderDetails: {
               status: order.status,
-              quantity: order.quantity,
               totalPrice: order.totalAmount,
               prescription: order.prescription,
             },
