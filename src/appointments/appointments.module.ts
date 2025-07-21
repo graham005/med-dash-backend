@@ -17,5 +17,6 @@ import { ZoomService } from 'src/zoom/zoom.service';
   ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService, ZoomService],
+  exports: [AppointmentsService],
 })
 export class AppointmentsModule {}
