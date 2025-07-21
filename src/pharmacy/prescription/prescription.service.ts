@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Doctor } from 'src/users/entities/doctor.entity';
 import { User } from 'src/users/entities/user.entity';
+import { Medicine } from '../medicine/entities/medicine.entity';
 
 @Injectable()
 export class PrescriptionService {
@@ -16,7 +17,9 @@ export class PrescriptionService {
     @InjectRepository(Doctor)
     private readonly doctorRepository: Repository<Doctor>,
     @InjectRepository(Patient)
-    private readonly patientRepository: Repository<Patient>
+    private readonly patientRepository: Repository<Patient>,
+    @InjectRepository(Medicine)
+    private readonly medicineRepository: Repository<Medicine>
   ) { }
 
   async create(createPrescriptionDto: CreatePrescriptionDto, user: User) {
@@ -42,6 +45,17 @@ export class PrescriptionService {
     const existingPrescription = await this.prescriptionRepository.findOne({ where: { name: createPrescriptionDto.name } });
     if (existingPrescription) {
       throw new Error('Prescription with this name already exists');
+    }
+
+    // Check medicine stock for each medication
+    for (const med of createPrescriptionDto.medications) {
+      const medicine = await this.medicineRepository.findOne({ where: { id: med.medicineId } });
+      if (!medicine) {
+        throw new NotFoundException(`Medicine with ID ${med.medicineId} not found`);
+      }
+      if (medicine.stock <= 0) {
+        throw new Error(`Medicine "${medicine.name}" is out of stock`);
+      }
     }
 
     const newPrescription = this.prescriptionRepository.create({

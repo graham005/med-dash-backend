@@ -36,7 +36,7 @@ export class MedicineController {
     return this.medicineService.findOne(id);
   }
 
-  @Roles(UserRole.PHARMACIST)
+  @Roles(UserRole.PHARMACIST, UserRole.PATIENT)
   @Patch(':id')
   update(
     @Param('id') id: string, 
