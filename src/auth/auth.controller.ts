@@ -42,10 +42,9 @@ export class AuthController {
   @Get('refresh')
   refreshToken(
     @UserDecorator() user: User,
-    @Query('id') id: string,
     @Query('refreshToken') refreshToken: string
   ) {
-    return this.authService.refreshToken(user, id, refreshToken);
+    return this.authService.refreshToken(user, user.id, refreshToken);
   }
 
   @Roles(UserRole.PHARMACIST, UserRole.PATIENT, UserRole.DOCTOR, UserRole.ADMIN)

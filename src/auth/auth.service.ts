@@ -162,38 +162,38 @@ export class AuthService {
   }
 
   async refreshToken(user: User, id: string, refreshToken: string) {
+    // Find the Auth entity by user relation, not by id
     const auth = await this.authRepository.findOne({
-      where: { id }
-    })
+      where: { user: { id: user.id } }
+    });
     if (!auth) {
-      throw new NotFoundException('Not Found')
+      throw new NotFoundException('Not Found');
     }
 
     const foundUser = await this.userRepository.findOne({
       where: { id: user.id }
-
     });
     if (!foundUser) {
-      throw new NotFoundException(`User not found`)
+      throw new NotFoundException(`User not found`);
     }
     const refreshTokenMatches = await Bcrypt.compare(
       refreshToken,
       auth.token
-    )
+    );
 
     if (!refreshTokenMatches) {
-      throw new NotFoundException('Invalid token')
+      throw new NotFoundException('Invalid token');
     }
 
     const { accessToken, refreshToken: newRefreshToken } = await this.getTokens(
       foundUser.id,
       foundUser.email,
       foundUser.userRole
-    )
+    );
 
-    await this.saveRefreshToken(foundUser.id, refreshToken)
+    await this.saveRefreshToken(foundUser.id, newRefreshToken);
 
-    return { accessToken, refreshToken: newRefreshToken }
+    return { accessToken, refreshToken: newRefreshToken };
   }
 
   changePassword(id: number, updateAuthDto: UpdateAuthDto) {
