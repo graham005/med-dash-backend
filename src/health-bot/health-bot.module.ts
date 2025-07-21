@@ -5,12 +5,15 @@ import { UsersModule } from 'src/users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { HttpModule } from '@nestjs/axios';
+import { AppointmentsModule } from 'src/appointments/appointments.module';
+import { Appointment } from 'src/appointments/entities/appointment.entity';
 
 @Module({
   imports:[
     UsersModule,
-    TypeOrmModule.forFeature([User]),
-    HttpModule
+    TypeOrmModule.forFeature([User, Appointment]),
+    HttpModule,
+    AppointmentsModule
   ],
   controllers: [HealthBotController],
   providers: [HealthBotService],

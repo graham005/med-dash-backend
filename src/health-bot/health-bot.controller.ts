@@ -4,6 +4,9 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from 'src/enums';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { CreateAppointmentDto } from 'src/appointments/dto/create-appointment.dto';
+import { User as UserDecorator } from 'src/auth/decorators/user.decorator';
+import { User } from 'src/users/entities/user.entity';
 
 interface BotRequest {
   question: string;
@@ -85,7 +88,10 @@ export class HealthBotController {
   // For authenticated users - could add conversation history, etc.
   @Roles(UserRole.PATIENT)
   @Post('ask-authenticated')
-  async askQuestionAuthenticated(@Body() body: BotRequest): Promise<BotControllerResponse> {
+  async askQuestionAuthenticated(
+    @Body() body: BotRequest,
+    @UserDecorator() user: User
+  ): Promise<BotControllerResponse> {
     try {
       if (!body.question || typeof body.question !== 'string' || body.question.trim().length === 0) {
         throw new HttpException(
@@ -95,13 +101,8 @@ export class HealthBotController {
       }
 
       const sanitizedQuestion = body.question.trim().substring(0, 1000);
-      const botResponse = await this.botService.askQuestion(sanitizedQuestion);
-
-      // For authenticated users, you could:
-      // - Store conversation history
-      // - Provide personalized responses
-      // - Access user's medical history (with proper permissions)
-      // - Send escalation notifications to their healthcare providers
+      // Pass user to the service for appointment context
+      const botResponse = await this.botService.askQuestion(sanitizedQuestion, user);
 
       return {
         success: true,
@@ -167,6 +168,21 @@ export class HealthBotController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  @Roles(UserRole.PATIENT)
+  @Post('schedule-appointment')
+  async scheduleAppointment(
+    @Body() createAppointmentDto: CreateAppointmentDto,
+    @UserDecorator() user: User,
+  ) {
+    return this.botService.scheduleAppointment(createAppointmentDto, user);
+  }
+
+  @Roles(UserRole.PATIENT)
+  @Get('appointments')
+  async getUserAppointments(@UserDecorator() user: User) {
+    return this.botService.getUserAppointments(user);
   }
 
   private generateRequestId(): string {
