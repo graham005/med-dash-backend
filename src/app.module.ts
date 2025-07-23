@@ -19,6 +19,8 @@ import { HealthBotModule } from './health-bot/health-bot.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ZoomService } from './zoom/zoom.service';
 import {  MessagingModule } from './message/message.module';
+import { MailModule } from './mail/mail.module';
+import { EMSModule } from './ems/ems.module';
 
 @Module({
   imports: [
@@ -28,7 +30,7 @@ import {  MessagingModule } from './message/message.module';
     }),
     AuthModule, UsersModule, AppointmentsModule,DatabaseModule, AvailabilityModule,
     MedicineModule, PrescriptionModule, PharmacyOrderModule, ConsultationModule, EPrescriptionModule, 
-    HealthBotModule, PaymentsModule, MessagingModule
+    HealthBotModule, PaymentsModule, MessagingModule, MailModule, EMSModule
   ],
   controllers: [AppController],
   providers: [AppService,
