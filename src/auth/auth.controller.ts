@@ -5,7 +5,7 @@ import { UpdateAuthDto } from './dto/update-auth.dto';
 import { SignInDto } from './dto/signin.dto';
 import { SignUpDto } from './dto/signup.dto';
 import { User as UserDecorator } from '../auth/decorators/user.decorator'
-import { PatientDto, DoctorDto, PharmacistDto, AdminDto, UpdatePatientDto } from './dto/profiles-dto';
+import { PatientDto, DoctorDto, PharmacistDto, AdminDto, UpdatePatientDto, ParamedicDto, UpdateParamedicDto } from './dto/profiles-dto';
 import { Public } from './decorators/public.decorator';
 import { RolesGuard } from './guards/roles.guard';
 import { UserRole } from 'src/enums';
@@ -106,6 +106,15 @@ export class AuthController {
     )
   }
 
+  @Roles(UserRole.PARAMEDIC)
+  @Post('paramedic/profile')
+  createParamedicProfile(
+    @UserDecorator() user: User,
+    @Body() paramedicDto: ParamedicDto,
+  ) {
+    return this.authService.createParamedicProfile(user, paramedicDto);
+  }
+
   @Patch('patient/profile/:id')
   updatePatientProfile(
     @Param('id') id: string,
@@ -140,6 +149,15 @@ export class AuthController {
     @Body() adminDto: AdminDto
   ): Promise<any> {
     return this.authService.updateAdminProfile(id, adminDto, user);
+  }
+
+  @Patch('paramedic/profile/:id')
+  updateParamedicProfile(
+    @Param('id') id: string,
+    @UserDecorator() user: User,
+    @Body() updateParamedicDto: UpdateParamedicDto
+  ): Promise<any> {
+    return this.authService.updateParamedicProfile(id, updateParamedicDto, user);
   }
   @Roles(UserRole.PATIENT, UserRole.DOCTOR, UserRole.PHARMACIST, UserRole.ADMIN)
   @Get('profile')

@@ -13,11 +13,12 @@ import { UsersModule } from 'src/users/users.module';
 import { AtStrategy } from './strategies/at.strategy';
 import { RtStrategy } from './strategies/rt.strategy';
 import { Admin } from 'src/users/entities/admin.entity';
+import { Paramedic } from 'src/users/entities/paramedic.entity';
 
 @Module({
   imports: [
     DatabaseModule, UsersModule, 
-    TypeOrmModule.forFeature([Auth, User, Patient, Doctor, Pharmacist, Admin]),
+    TypeOrmModule.forFeature([Auth, User, Patient, Doctor, Pharmacist, Admin, Paramedic]),
     JwtModule.register({
       global: true
     })

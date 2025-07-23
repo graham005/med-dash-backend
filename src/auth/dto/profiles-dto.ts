@@ -55,21 +55,34 @@ export class AdminDto {
 
 }
 
+export class ParamedicDto {
+    @ApiProperty()
+    ambulanceId: string;
+
+    @ApiProperty()
+    licenseNumber: string;
+
+    @ApiProperty()
+    station: string;
+
+}
+
 export class UpdatePatientDto extends PartialType(PatientDto) { }
 export class UpdateDoctorDto extends PartialType(DoctorDto) { }
 export class UpdatePharmacistDto extends PartialType(PharmacistDto) { }
+export class UpdateParamedicDto extends PartialType(ParamedicDto) {}
 export class UpdateAdminDto extends PartialType(AdminDto) {
-  @ApiProperty({ required: false })
-  @IsString()
-  firstName?: string;
+    @ApiProperty({ required: false })
+    @IsString()
+    firstName?: string;
 
-  @ApiProperty({ required: false })
-  @IsString()
-  lastName?: string;
+    @ApiProperty({ required: false })
+    @IsString()
+    lastName?: string;
 
-  @ApiProperty({ required: false })
-  @IsString()
-  email?: string;
+    @ApiProperty({ required: false })
+    @IsString()
+    email?: string;
 
 }
 

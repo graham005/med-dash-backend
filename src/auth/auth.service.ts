@@ -15,6 +15,8 @@ import { Doctor } from 'src/users/entities/doctor.entity';
 import { Pharmacist } from 'src/users/entities/pharmacist.entity';
 import { AdminDto, DoctorDto, PatientDto, PharmacistDto, UpdateAdminDto, UpdateDoctorDto, UpdatePatientDto, UpdatePharmacistDto } from './dto/profiles-dto';
 import { Admin } from 'src/users/entities/admin.entity';
+import { ParamedicDto, UpdateParamedicDto } from './dto/profiles-dto';
+import { Paramedic } from 'src/users/entities/paramedic.entity';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +27,7 @@ export class AuthService {
     @InjectRepository(Doctor) private readonly doctorRepository: Repository<Doctor>,
     @InjectRepository(Pharmacist) private readonly pharmacistRepository: Repository<Pharmacist>,
     @InjectRepository(Admin) private readonly adminRepository: Repository<Admin>,
+    @InjectRepository(Paramedic) private readonly paramedicRepository: Repository<Paramedic>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService
   ) { }
@@ -397,6 +400,52 @@ export class AuthService {
 
     const { passwordHash, ...userWithoutPassword } = updatedAdmin.user;
     return { ...updatedAdmin, user: userWithoutPassword };
+  }
+
+  async createParamedicProfile(
+    user: User,
+    paramedicDto?: ParamedicDto,
+  ) {
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!foundUser) {
+      throw new NotFoundException('User not found');
+    }
+    if (!paramedicDto) throw new Error('ParamedicDto is required');
+    const newProfile = this.paramedicRepository.create({
+      user: foundUser,
+      ambulanceId: paramedicDto.ambulanceId,
+      licenseNumber: paramedicDto.licenseNumber,
+      station: paramedicDto.station,
+    });
+    const savedProfile = await this.paramedicRepository.save(newProfile);
+    const { passwordHash, ...userWithoutPassword } = savedProfile.user;
+    return { ...savedProfile, user: userWithoutPassword };
+  }
+
+  async updateParamedicProfile(
+    id: string,
+    updateParamedicDto: UpdateParamedicDto,
+    user: User
+  ) {
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!foundUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const paramedic = await this.paramedicRepository.findOne({ where: { id, user: { id: user.id } }, relations: ['user'] });
+    if (!paramedic) {
+      throw new NotFoundException('Paramedic profile not found');
+    }
+
+    await this.paramedicRepository.update(id, updateParamedicDto);
+
+    const updatedParamedic = await this.paramedicRepository.findOne({ where: { id }, relations: ['user'] });
+    if (!updatedParamedic) {
+      throw new NotFoundException('Updated paramedic profile not found');
+    }
+
+    const { passwordHash, ...userWithoutPassword } = updatedParamedic.user;
+    return { ...updatedParamedic, user: userWithoutPassword };
   }
 
   async getProfile(user: User) {
