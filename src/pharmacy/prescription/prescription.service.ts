@@ -220,4 +220,63 @@ export class PrescriptionService {
         throw new Error(`Error deleting prescription: ${error.message}`);
       });
   }
+
+  async getPatientByUserId(userId: string): Promise<Patient | null> {
+    try {
+      const patient = await this.patientRepository.findOne({
+        where: { user: { id: userId } },
+        relations: ['user']
+      });
+      return patient;
+    } catch (error) {
+      console.error('Error finding patient by user ID:', error);
+      return null;
+    }
+  }
+
+  async findByPatientId(patientId: string): Promise<Prescription[]> {
+    try {
+      // Check your Prescription entity to see what the correct relation name is
+      // Replace 'medications' with the correct property name from your entity
+      const prescriptions = await this.prescriptionRepository.find({
+        where: { patient: { id: patientId } },
+        relations: [
+          'prescribedBy', 
+          'prescribedBy.user', 
+          'patient', 
+          'patient.user', 
+          'prescribedMedicines' // Change this to match your actual entity property
+          // OR it might be: 'medicines', 'items', 'prescriptionMedicines'
+        ]
+      });
+      return prescriptions;
+    } catch (error) {
+      console.error('Error finding prescriptions by patient ID:', error);
+      return [];
+    }
+  }
+
+  // Optional: Helper method to get detailed prescription info for the health bot
+  async getPrescriptionDetailsForBot(userId: string): Promise<any[]> {
+    try {
+      const patient = await this.getPatientByUserId(userId);
+      if (!patient) {
+        return [];
+      }
+
+      const prescriptions = await this.findByPatientId(patient.id);
+      
+      // Format the data to include medicine details
+      return prescriptions.map(prescription => ({
+        id: prescription.id,
+        name: prescription.name,
+        prescribedBy: prescription.prescribedBy?.user?.firstName + ' ' + prescription.prescribedBy?.user?.lastName,
+        patientName: prescription.patient?.user?.firstName + ' ' + prescription.patient?.user?.lastName,
+        medications: prescription.medications || [],
+      }));
+    } catch (error) {
+      console.error('Error getting prescription details for bot:', error);
+      return [];
+    }
+  }
 }

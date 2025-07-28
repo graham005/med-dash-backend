@@ -27,6 +27,6 @@ export class Medicine {
     @Column()
     expirationDate: Date;
 
-    @ManyToOne(() => Pharmacist)
+    @ManyToOne(() => Pharmacist, {cascade: true})
     addedBy: Pharmacist;
 }

@@ -9,7 +9,7 @@ export class PharmacyOrder {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @ManyToOne(() => Prescription, prescription => prescription.orders)
+    @ManyToOne(() => Prescription, prescription => prescription.orders, {cascade: true})
     prescription: Prescription;
 
     @ManyToOne(() => Patient)

@@ -9,10 +9,11 @@ import { Pharmacist } from 'src/users/entities/pharmacist.entity';
 import { UsersModule } from 'src/users/users.module';
 import { User } from 'src/users/entities/user.entity';
 import { Patient } from 'src/users/entities/patient.entity';
+import { MailModule } from 'src/mail/mail.module';
 
 @Module({
   imports: [
-    DatabaseModule,
+    DatabaseModule, MailModule,
     TypeOrmModule.forFeature([PharmacyOrder, Prescription, Pharmacist, User, Patient]),
     UsersModule
   ],

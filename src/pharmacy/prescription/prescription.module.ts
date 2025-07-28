@@ -18,5 +18,6 @@ import { Medicine } from '../medicine/entities/medicine.entity';
   ],
   controllers: [PrescriptionController],
   providers: [PrescriptionService],
+  exports: [PrescriptionService],
 })
 export class PrescriptionModule {}

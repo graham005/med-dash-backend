@@ -9,6 +9,7 @@ import { Prescription } from '../prescription/entities/prescription.entity';
 import { OrderStatus } from 'src/enums';
 import { User } from 'src/users/entities/user.entity';
 import { Patient } from 'src/users/entities/patient.entity';
+import { EmailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class PharmacyOrderService {
@@ -17,29 +18,94 @@ export class PharmacyOrderService {
     @InjectRepository(Prescription) private readonly prescriptionRepository: Repository<Prescription>,
     @InjectRepository(Pharmacist) private readonly pharmacistRepository: Repository<Pharmacist>,
     @InjectRepository(Patient) private readonly patientRepository: Repository<Patient>,
+    private readonly emailService: EmailService
   ) { }
+
   async create(createPharmacyOrderDto: CreatePharmacyOrderDto, user: User) {
     const patient = await this.patientRepository.findOne({
       where: {
         user: {
           id: user.id
         }
-      }
+      },
+      relations: ['user']
     })
     if (!patient) {
       throw new NotFoundException('Patient profile not found')
     }
-    const prescription = await this.prescriptionRepository.findOne({ where: { id: createPharmacyOrderDto.prescriptionId } })
+
+    const prescription = await this.prescriptionRepository.findOne({ 
+      where: { id: createPharmacyOrderDto.prescriptionId },
+      relations: ['prescribedBy', 'prescribedBy.user', 'patient', 'patient.user', 'medications']
+    })
     if (!prescription) {
       throw new NotFoundException('Prescription not found');
     }
+
     const newPharmacyOrder = this.pharmacyorderRepository.create({
       ...createPharmacyOrderDto,
       patient,
       prescription
-
     });
-    return this.pharmacyorderRepository.save(newPharmacyOrder)
+
+    const savedOrder = await this.pharmacyorderRepository.save(newPharmacyOrder);
+
+    // Send email notifications after successful order creation
+    try {
+      // Send order confirmation to patient
+      await this.emailService.sendPharmacyOrderConfirmation(
+        patient.user.email,
+        patient.user.firstName,
+        {
+          id: savedOrder.id,
+          prescriptionName: prescription.name,
+          date: savedOrder.createdAt || new Date().toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          }),
+          status: savedOrder.status,
+          totalAmount: createPharmacyOrderDto.totalAmount || 0,
+          prescribedBy: `Dr. ${prescription.prescribedBy.user.firstName} ${prescription.prescribedBy.user.lastName}`,
+          medications: prescription.medications || [],
+          orderUrl: `${process.env.FRONTEND_URL}/dashboard/patient/orders/${savedOrder.id}`
+        }
+      );
+
+      // Send new order notification to all pharmacists
+      const pharmacists = await this.pharmacistRepository.find({
+        relations: ['user']
+      });
+
+      for (const pharmacist of pharmacists) {
+        await this.emailService.sendNewPharmacyOrderNotification(
+          pharmacist.user.email,
+          pharmacist.user.firstName,
+          {
+            id: savedOrder.id,
+            patientName: `${patient.user.firstName} ${patient.user.lastName}`,
+            prescriptionName: prescription.name,
+            date: savedOrder.createdAt || new Date().toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            }),
+            status: savedOrder.status,
+            totalAmount: createPharmacyOrderDto.totalAmount || 0,
+            prescribedBy: `Dr. ${prescription.prescribedBy.user.firstName} ${prescription.prescribedBy.user.lastName}`,
+            medications: prescription.medications || [],
+            orderUrl: `${process.env.FRONTEND_URL}/dashboard/pharmacist/orders/${savedOrder.id}`
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to send pharmacy order emails:', error);
+      // Don't throw error as order creation was successful
+    }
+
+    return savedOrder;
   }
 
   async findAll(user: User) {
@@ -128,6 +194,12 @@ export class PharmacyOrderService {
   }
 
   async update(id: string, updatePharmacyOrderDto: UpdatePharmacyOrderDto, user: User) {
+    // Get the order before update for email notifications
+    const existingOrder = await this.pharmacyorderRepository.findOne({
+      where: { id },
+      relations: ['prescription', 'prescription.prescribedBy', 'prescription.prescribedBy.user', 'prescription.patient', 'prescription.patient.user', 'prescription.medications']
+    });
+
     // Check if user is a patient
     const patient = await this.patientRepository.findOne({
       where: { user: { id: user.id } },
@@ -170,7 +242,35 @@ export class PharmacyOrderService {
           throw new NotFoundException('PharmacyOrder not found');
         }
 
-        return await this.findOne(id, user);
+        const updatedOrder = await this.findOne(id, user);
+
+        // Send email notification for status change
+        if (existingOrder && updatePharmacyOrderDto.status && 
+            existingOrder.status !== updatePharmacyOrderDto.status) {
+          try {
+            await this.emailService.sendPharmacyOrderStatusUpdate(
+              existingOrder.prescription.patient.user.email,
+              existingOrder.prescription.patient.user.firstName,
+              {
+                id: existingOrder.id,
+                oldStatus: existingOrder.status,
+                newStatus: updatePharmacyOrderDto.status,
+                prescriptionName: existingOrder.prescription.name,
+                date: existingOrder.createdAt || new Date().toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                }),
+                orderUrl: `${process.env.FRONTEND_URL}/dashboard/patient/orders/${existingOrder.id}`
+              }
+            );
+          } catch (error) {
+            console.error('Failed to send status update email:', error);
+          }
+        }
+
+        return updatedOrder;
       } catch (error) {
         console.error('Error updating pharmacy order:', error);
         throw new Error(`Error updating pharmacy order: ${error.message}`);
@@ -208,7 +308,53 @@ export class PharmacyOrderService {
           throw new NotFoundException('PharmacyOrder not found');
         }
 
-        return await this.findOne(id, user);
+        const updatedOrder = await this.findOne(id, user);
+
+        // Send email notifications for status changes
+        if (existingOrder && updatePharmacyOrderDto.status && 
+            existingOrder.status !== updatePharmacyOrderDto.status) {
+          try {
+            // Notify patient of status change
+            await this.emailService.sendPharmacyOrderStatusUpdate(
+              existingOrder.prescription.patient.user.email,
+              existingOrder.prescription.patient.user.firstName,
+              {
+                id: existingOrder.id,
+                oldStatus: existingOrder.status,
+                newStatus: updatePharmacyOrderDto.status,
+                prescriptionName: existingOrder.prescription.name,
+                date: existingOrder.createdAt || new Date().toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                }),
+                orderUrl: `${process.env.FRONTEND_URL}/dashboard/patient/orders/${existingOrder.id}`,
+                pharmacistName: `${pharmacist.user.firstName} ${pharmacist.user.lastName}`,
+                pharmacyName: pharmacist.pharmacyName
+              }
+            );
+
+            // Send special notifications for specific status changes
+            if (updatePharmacyOrderDto.status === OrderStatus.READY) {
+              await this.emailService.sendPharmacyOrderReadyNotification(
+                existingOrder.prescription.patient.user.email,
+                existingOrder.prescription.patient.user.firstName,
+                {
+                  id: existingOrder.id,
+                  prescriptionName: existingOrder.prescription.name,
+                  pharmacistName: `${pharmacist.user.firstName} ${pharmacist.user.lastName}`,
+                  pharmacyName: pharmacist.pharmacyName,
+                  orderUrl: `${process.env.FRONTEND_URL}/dashboard/patient/orders/${existingOrder.id}`
+                }
+              );
+            }
+          } catch (error) {
+            console.error('Failed to send status update email:', error);
+          }
+        }
+
+        return updatedOrder;
       } catch (error) {
         console.error('Error updating pharmacy order:', error);
         throw new Error(`Error updating pharmacy order: ${error.message}`);
@@ -220,6 +366,12 @@ export class PharmacyOrderService {
   }
 
   async remove(id: string, user: User): Promise<PharmacyOrder> {
+    // Get the order before cancellation for email notifications
+    const existingOrder = await this.pharmacyorderRepository.findOne({
+      where: { id },
+      relations: ['prescription', 'prescription.prescribedBy', 'prescription.prescribedBy.user', 'prescription.patient', 'prescription.patient.user', 'prescription.medications']
+    });
+
     // Check if user is a patient
     const patient = await this.patientRepository.findOne({
       where: { user: { id: user.id } },
@@ -240,8 +392,59 @@ export class PharmacyOrderService {
       }
 
       pharmacyorder.status = OrderStatus.CANCELLED;
-      await this.pharmacyorderRepository.save(pharmacyorder);
-      return pharmacyorder;
+      const cancelledOrder = await this.pharmacyorderRepository.save(pharmacyorder);
+
+      // Send cancellation emails
+      if (existingOrder) {
+        try {
+          // Email to patient confirming cancellation
+          await this.emailService.sendPharmacyOrderCancellation(
+            existingOrder.prescription.patient.user.email,
+            existingOrder.prescription.patient.user.firstName,
+            {
+              id: existingOrder.id,
+              prescriptionName: existingOrder.prescription.name,
+              date: existingOrder.createdAt || new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              }),
+              cancelledBy: 'patient',
+              orderUrl: `${process.env.FRONTEND_URL}/dashboard/patient/orders/new`
+            }
+          );
+
+          // Notify pharmacists of cancellation
+          const pharmacists = await this.pharmacistRepository.find({
+            relations: ['user']
+          });
+
+          for (const pharm of pharmacists) {
+            await this.emailService.sendPharmacyOrderCancellationNotification(
+              pharm.user.email,
+              pharm.user.firstName,
+              {
+                id: existingOrder.id,
+                patientName: `${existingOrder.prescription.patient.user.firstName} ${existingOrder.prescription.patient.user.lastName}`,
+                prescriptionName: existingOrder.prescription.name,
+                date: existingOrder.createdAt || new Date().toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                }),
+                cancelledBy: 'patient',
+                orderUrl: `${process.env.FRONTEND_URL}/dashboard/pharmacist/orders`
+              }
+            );
+          }
+        } catch (error) {
+          console.error('Failed to send cancellation emails:', error);
+        }
+      }
+
+      return cancelledOrder;
     }
 
     // Check if user is a pharmacist
@@ -261,8 +464,36 @@ export class PharmacyOrderService {
       }
 
       pharmacyorder.status = OrderStatus.CANCELLED;
-      await this.pharmacyorderRepository.save(pharmacyorder);
-      return pharmacyorder;
+      const cancelledOrder = await this.pharmacyorderRepository.save(pharmacyorder);
+
+      // Send cancellation emails
+      if (existingOrder) {
+        try {
+          // Email to patient
+          await this.emailService.sendPharmacyOrderCancellation(
+            existingOrder.prescription.patient.user.email,
+            existingOrder.prescription.patient.user.firstName,
+            {
+              id: existingOrder.id,
+              prescriptionName: existingOrder.prescription.name,
+              date: existingOrder.createdAt || new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              }),
+              cancelledBy: 'pharmacist',
+              pharmacistName: `${pharmacist.user.firstName} ${pharmacist.user.lastName}`,
+              pharmacyName: pharmacist.pharmacyName,
+              orderUrl: `${process.env.FRONTEND_URL}/dashboard/patient/orders/new`
+            }
+          );
+        } catch (error) {
+          console.error('Failed to send cancellation email:', error);
+        }
+      }
+
+      return cancelledOrder;
     }
 
     // If neither, deny access
