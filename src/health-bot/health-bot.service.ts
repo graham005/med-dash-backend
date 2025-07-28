@@ -6,6 +6,8 @@ import { AppointmentsService } from 'src/appointments/appointments.service';
 import { CreateAppointmentDto } from 'src/appointments/dto/create-appointment.dto';
 import { User } from 'src/users/entities/user.entity';
 import { AppointmentStatus } from 'src/enums';
+import { PrescriptionService } from 'src/pharmacy/prescription/prescription.service';
+import { MedicineService } from 'src/pharmacy/medicine/medicine.service';
 
 interface MedicalContext {
   content: string;
@@ -50,12 +52,21 @@ export class HealthBotService {
     'my appointments', 'upcoming appointments', 'cancel appointment'
   ];
 
+  // Add these to your existing keywords
+  private readonly MEDICINE_KEYWORDS = [
+    'medicines', 'medication', 'drugs', 'pills', 'prescription medicine',
+    'what does', 'side effects', 'what is', 'medicine effects', 'drug effects',
+    'my prescription', 'prescription medicines', 'medicine in prescription'
+  ];
+
   // Temporary in-memory message store per user
   private userMessageContext: Map<string, { [key: string]: any }> = new Map();
 
   constructor(
     private readonly configService: ConfigService,
     private readonly appointmentsService: AppointmentsService,
+    private readonly prescriptionService: PrescriptionService,
+    private readonly medicineService: MedicineService, 
   ) {
     const togetherApiKey = this.configService.get<string>('TOGETHER_TOKEN');
     const githubToken = this.configService.get<string>('GITHUB_TOKEN');
@@ -100,6 +111,11 @@ export class HealthBotService {
       // Check for appointment-related queries
       if (this.isAppointmentQuery(question)) {
         return await this.handleAppointmentQuery(question, user);
+      }
+
+      // Check for medicine-related queries
+      if (this.isMedicineQuery(question)) {
+        return await this.handleMedicineQuery(question, user);
       }
 
       // Update knowledge base if needed
@@ -483,6 +499,11 @@ Your health and safety are important, and a healthcare professional can provide 
     return this.APPOINTMENT_KEYWORDS.some(keyword => questionLower.includes(keyword));
   }
 
+  private isMedicineQuery(question: string): boolean {
+    const questionLower = question.toLowerCase();
+    return this.MEDICINE_KEYWORDS.some(keyword => questionLower.includes(keyword));
+  }
+
   private async handleAppointmentQuery(question: string, user?: User): Promise<BotResponse> {
     const questionLower = question.toLowerCase();
 
@@ -724,5 +745,460 @@ How can I assist you with your appointments today?`,
     const context = this.userMessageContext.get(userId) || { messages: [] };
     context.messages.push({ text: message, timestamp: new Date() });
     this.userMessageContext.set(userId, context);
+  }
+
+  private async handleMedicineQuery(question: string, user?: User): Promise<BotResponse> {
+    const questionLower = question.toLowerCase();
+
+    if (!user) {
+      return {
+        answer: `🔒 **Login Required**
+
+To access your medicine information, please log in.
+
+💊 **Available after login:**
+• View your prescriptions and medicines  
+• Get detailed medicine information
+• Learn about side effects and usage
+
+🔐 Please log in to continue.`,
+      confidence: 0.9,
+      sources: ['Authentication System'],
+      escalate: false,
+      reasoning: 'Medicine query requires authentication'
+    };
+    }
+
+    try {
+      // Handle different query types
+      if (questionLower.includes('prescriptions') || questionLower.includes('my prescriptions')) {
+        return await this.handlePrescriptionListQuery(await this.getUserPrescriptions(user.id));
+      } 
+      else if (questionLower.includes('medicines') || questionLower.includes('my medicines')) {
+        return await this.handleUserPrescriptionMedicines(user);
+      }
+      else if (questionLower.includes('who prescribed')) {
+        return await this.handleWhoPrescribedQuery(questionLower, user);
+      }
+        else if (this.extractMedicineName(question)) {
+        const medicineName = this.extractMedicineName(question);
+        if (medicineName) {
+          return await this.handleSpecificMedicineQuery(medicineName, question, user);
+        } else {
+          return this.handleMedicineHelp();
+        }
+      } 
+      else {
+        return this.handleMedicineHelp();
+      }
+    } catch (error) {
+      this.logger.error(`Error handling medicine query: ${error.message}`);
+      return {
+        answer: `I'm having trouble accessing your prescription information right now. 
+
+📞 **Try these alternatives:**
+• Contact your pharmacist
+• Ask your doctor about your prescriptions  
+• Check with your healthcare provider
+
+For urgent medicine concerns, contact a healthcare professional.`,
+      confidence: 0.3,
+      sources: ['System Error'],
+      escalate: true,
+      reasoning: 'Error accessing prescription system'
+    };
+    }
+  }
+
+  // Add method to handle "who prescribed" queries
+  private async handleWhoPrescribedQuery(question: string, user: User): Promise<BotResponse> {
+    const prescriptions = await this.getUserPrescriptions(user.id);
+    
+    // Extract prescription name from question
+    const prescriptionNameMatch = question.match(/who prescribed (.+?)(?:\?|$)/i);
+    if (!prescriptionNameMatch) {
+      return {
+        answer: `📋 **Prescription Information**
+
+To find who prescribed a specific prescription, ask like:
+• "Who prescribed [prescription name]?"
+• "Which doctor gave me [prescription name]?"
+
+📝 **Your prescriptions:** ${prescriptions.map(p => p.name).join(', ')}`,
+        confidence: 0.7,
+        sources: ['Prescription Database'],
+        escalate: false,
+        reasoning: 'Need specific prescription name'
+      };
+    }
+
+    const searchName = prescriptionNameMatch[1].toLowerCase();
+    const foundPrescription = prescriptions.find(p => 
+      p.name.toLowerCase().includes(searchName) || 
+      searchName.includes(p.name.toLowerCase())
+    );
+
+    if (!foundPrescription) {
+      return {
+        answer: `🔍 **Prescription Not Found**
+
+I couldn't find a prescription matching "${prescriptionNameMatch[1]}" in your records.
+
+📝 **Your prescriptions:** ${prescriptions.map(p => p.name).join(', ')}
+
+Try asking with the exact prescription name.`,
+        confidence: 0.8,
+        sources: ['Prescription Database'],
+        escalate: false,
+        reasoning: 'Prescription not found'
+      };
+    }
+
+    const doctorName = foundPrescription.prescribedBy?.user 
+      ? `Dr. ${foundPrescription.prescribedBy.user.firstName} ${foundPrescription.prescribedBy.user.lastName}`
+      : 'Unknown Doctor';
+    const prescribedDate = new Date(foundPrescription.prescribedDate).toLocaleDateString();
+
+    return {
+      answer: `👨‍⚕️ **Prescription Information**
+
+**${foundPrescription.name}** was prescribed by:
+
+**Doctor:** ${doctorName}
+📅 **Date:** ${prescribedDate}
+💊 **Medicines:** ${foundPrescription.medicines.length} item(s)
+📝 **Contains:** ${foundPrescription.medicines.map(m => m.name).join(', ')}
+
+Need more details about any of these medicines? Just ask!`,
+      confidence: 0.95,
+      sources: ['Prescription Database'],
+      escalate: false,
+      reasoning: 'Successfully found prescription information'
+    };
+  }
+
+  // Add general medicine help
+  private handleMedicineHelp(): BotResponse {
+    return {
+      answer: `💊 **Medicine Information Help**
+
+**What you can ask:**
+• "My prescriptions" - See all your prescriptions
+• "My medicines" - View all your medications  
+• "Who prescribed [prescription name]?" - Find prescribing doctor
+• "What does [medicine name] do?" - Medicine purpose
+• "Side effects of [medicine name]" - Safety information
+
+**Quick tip:** Be specific with medicine or prescription names for best results!`,
+      confidence: 0.8,
+      sources: ['Medicine Information System'],
+      escalate: false,
+      reasoning: 'General medicine help provided'
+    };
+  }
+
+  private async getUserPrescriptions(userId: string): Promise<any[]> {
+    try {
+      // Use your existing findAll method instead of the non-existent methods
+      const user = { id: userId } as User;
+      const prescriptions = await this.prescriptionService.findAll(user);
+      
+      // Format the data based on your actual entity structure
+      return prescriptions.map(prescription => ({
+        id: prescription.id,
+        name: prescription.name,
+        prescribedBy: prescription.prescribedBy,
+        prescribedDate: prescription.date, // Use 'date' instead of 'createdAt'
+        // Change 'medications' to the correct property name from your entity:
+        medicines: prescription.medications?.map(pm => ({
+          id: pm.medicineId,
+          name: pm.medicineId, // You'll need to resolve this to actual name
+          dosage: pm.dosage,
+          frequency: pm.frequency,
+          duration: pm.duration,
+          quantity: pm.quantity
+        })) || []
+      }));
+    } catch (error) {
+      this.logger.error(`Error getting user prescriptions: ${error.message}`);
+      return [];
+    }
+  }
+
+  private async handlePrescriptionListQuery(prescriptions: any[]): Promise<BotResponse> {
+    if (prescriptions.length === 0) {
+      return {
+        answer: `📋 **No Prescriptions Found**
+
+You currently don't have any prescriptions in your records.
+
+💡 **This could mean:**
+• Your prescriptions haven't been added to the system yet
+• You may need to visit a doctor for a consultation
+• Ask your doctor to upload your prescription
+
+Would you like help scheduling an appointment with a doctor?`,
+        confidence: 0.9,
+        sources: ['Prescription Database'],
+        escalate: false,
+        reasoning: 'No prescriptions found for user'
+      };
+    }
+
+    let prescriptionList = '';
+    prescriptions.forEach((prescription, index) => {
+      const doctorName = prescription.prescribedBy?.user 
+        ? `Dr. ${prescription.prescribedBy.user.firstName} ${prescription.prescribedBy.user.lastName}`
+        : 'Unknown Doctor';
+      const prescribedDate = new Date(prescription.prescribedDate).toLocaleDateString();
+      const medicineCount = prescription.medicines.length;
+
+      prescriptionList += `${index + 1}. **${prescription.name}**
+   👨‍⚕️ Prescribed by: ${doctorName}
+   📅 Date: ${prescribedDate}
+   💊 Contains: ${medicineCount} medicine(s)
+   📝 Medicines: ${prescription.medicines.map(m => m.name).join(', ')}
+
+`;
+    });
+
+    return {
+      answer: `📋 **Your Prescriptions**
+
+${prescriptionList}
+
+💡 **Need More Info?**
+• Ask about specific medicines: "What does [medicine name] do?"
+• Find prescribing doctor: "Who prescribed [prescription name]?"
+• Learn about side effects: "Side effects of [medicine name]"
+
+${prescriptions.length > 5 ? `\n📊 Showing all ${prescriptions.length} prescriptions` : ''}`,
+      confidence: 0.95,
+      sources: ['Prescription Database'],
+      escalate: false,
+      reasoning: 'Successfully retrieved user prescriptions'
+    };
+  }
+
+  private async handleUserPrescriptionMedicines(user: User): Promise<BotResponse> {
+    try {
+      const prescriptions = await this.getUserPrescriptions(user.id);
+      
+      if (prescriptions.length === 0) {
+        return {
+          answer: `💊 **No Medicines Found**
+
+You don't have any medicines in your prescriptions yet.
+
+🏥 **To get medicines:**
+• Schedule an appointment with a doctor
+• Get a prescription from your healthcare provider
+• Have your doctor add prescriptions to the system
+
+Would you like help scheduling an appointment?`,
+          confidence: 0.9,
+          sources: ['Medicine Database'],
+          escalate: false,
+          reasoning: 'No medicines found for user'
+        };
+      }
+
+      // Collect all medicines from all prescriptions
+      const allMedicines = prescriptions.flatMap(prescription => 
+        prescription.medicines.map(medicine => ({
+          ...medicine,
+          prescriptionName: prescription.name,
+          prescribedBy: prescription.prescribedBy?.user 
+            ? `Dr. ${prescription.prescribedBy.user.firstName} ${prescription.prescribedBy.user.lastName}`
+            : 'Unknown Doctor'
+        }))
+      );
+
+      if (allMedicines.length === 0) {
+        return {
+          answer: `💊 **No Medicines in Prescriptions**
+
+Your prescriptions don't contain any medicines yet. This might mean:
+• Prescriptions are pending medicine assignment
+• Contact your doctor to add medicines to your prescriptions
+
+📞 Contact your healthcare provider for more information.`,
+          confidence: 0.8,
+          sources: ['Medicine Database'],
+          escalate: false,
+          reasoning: 'Prescriptions exist but no medicines found'
+        };
+      }
+
+      let medicineList = '';
+      allMedicines.forEach((medicine, index) => {
+        medicineList += `${index + 1}. **${medicine.name}**
+   💊 Dosage: ${medicine.dosage || 'Not specified'}
+   ⏰ Frequency: ${medicine.frequency || 'Not specified'}
+   📅 Duration: ${medicine.duration || 'Not specified'}
+   📋 From: ${medicine.prescriptionName}
+   👨‍⚕️ Prescribed by: ${medicine.prescribedBy}
+
+`;
+      });
+
+      return {
+        answer: `💊 **Your Medicines**
+
+${medicineList}
+
+💡 **Need More Info?**
+• Ask about specific medicine: "What does [medicine name] do?"
+• Learn about side effects: "Side effects of [medicine name]"
+• Find usage instructions: "How to take [medicine name]"
+
+📊 Total: ${allMedicines.length} medicine(s) from ${prescriptions.length} prescription(s)`,
+      confidence: 0.95,
+      sources: ['Medicine Database'],
+      escalate: false,
+      reasoning: 'Successfully retrieved user medicines'
+    };
+
+    } catch (error) {
+      this.logger.error(`Error handling user prescription medicines: ${error.message}`);
+      return {
+        answer: `I'm having trouble accessing your medicine information right now.
+
+📞 **Try these alternatives:**
+• Contact your pharmacist
+• Ask your doctor about your medicines
+• Check with your healthcare provider
+
+For urgent medicine concerns, contact a healthcare professional.`,
+        confidence: 0.3,
+        sources: ['System Error'],
+        escalate: true,
+        reasoning: 'Error accessing medicine system'
+      };
+    }
+  }
+
+  private extractMedicineName(question: string): string | null {
+    // Try to extract medicine name from common question patterns
+    const patterns = [
+      /what does (.+?) do/i,
+      /side effects of (.+?)(?:\?|$)/i,
+      /what is (.+?)(?:\?|$)/i,
+      /how to take (.+?)(?:\?|$)/i,
+      /(.+?) effects/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = question.match(pattern);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+
+    return null;
+  }
+
+  private async handleSpecificMedicineQuery(medicineName: string, question: string, user: User): Promise<BotResponse> {
+    try {
+      // First check if user has this medicine in their prescriptions
+      const prescriptions = await this.getUserPrescriptions(user.id);
+      const userMedicine = prescriptions.flatMap(p => p.medicines)
+        .find(m => m.name.toLowerCase().includes(medicineName.toLowerCase()) || 
+                   medicineName.toLowerCase().includes(m.name.toLowerCase()));
+
+      // Try to get medicine info from the medicine service
+      const medicines = await this.medicineService.findAll();
+      const medicineInfo = medicines.find(m => 
+        m.name.toLowerCase().includes(medicineName.toLowerCase()) || 
+        medicineName.toLowerCase().includes(m.name.toLowerCase())
+      );
+
+      if (!medicineInfo && !userMedicine) {
+        return {
+          answer: `🔍 **Medicine Not Found**
+
+I couldn't find information about "${medicineName}" in our database or your prescriptions.
+
+💡 **Try:**
+• Check the spelling of the medicine name
+• Ask about medicines in your prescriptions: "my medicines"
+• Contact your pharmacist for detailed information
+
+For specific medicine questions, your pharmacist or doctor can provide the most accurate information.`,
+          confidence: 0.7,
+          sources: ['Medicine Database'],
+          escalate: false,
+          reasoning: 'Medicine not found in database or user prescriptions'
+        };
+      }
+
+      const medicine = medicineInfo || userMedicine;
+      const questionLower = question.toLowerCase();
+
+      let answer = `💊 **${medicine.name}**\n\n`;
+
+      if (questionLower.includes('side effects')) {
+        answer += `⚠️ **Common Side Effects:**
+${medicine.sideEffects || 'Side effect information not available in our database.'}
+
+🚨 **Important:** If you experience any concerning side effects, contact your healthcare provider immediately.`;
+      } else if (questionLower.includes('what does') || questionLower.includes('what is')) {
+        answer += `📋 **Purpose:**
+${medicine.description || 'Medicine description not available in our database.'}
+
+💊 **Category:** ${medicine.category || 'Not specified'}`;
+      } else {
+        // General medicine information
+        answer += `📋 **Purpose:** ${medicine.description || 'Not available'}
+💊 **Category:** ${medicine.category || 'Not specified'}
+⚠️ **Side Effects:** ${medicine.sideEffects || 'Not available'}`;
+
+        if (userMedicine) {
+          answer += `\n\n📝 **Your Prescription Details:**
+💊 Dosage: ${userMedicine.dosage || 'Not specified'}
+⏰ Frequency: ${userMedicine.frequency || 'Not specified'}
+📅 Duration: ${userMedicine.duration || 'Not specified'}`;
+        }
+      }
+
+      return {
+        answer: answer + `\n\n⚠️ **Always consult your healthcare provider or pharmacist for personalized medical advice about your medications.**`,
+        confidence: medicineInfo ? 0.9 : 0.7,
+        sources: ['Medicine Database', 'Prescription Records'],
+        escalate: false,
+        reasoning: `Medicine information provided for ${medicine.name}`
+      };
+
+    } catch (error) {
+      this.logger.error(`Error handling specific medicine query: ${error.message}`);
+      return {
+        answer: `I'm having trouble finding information about "${medicineName}" right now.
+
+📞 **For accurate medicine information:**
+• Contact your pharmacist
+• Ask your prescribing doctor
+• Check the medicine packaging or leaflet
+
+For urgent medicine concerns, contact a healthcare professional immediately.`,
+        confidence: 0.3,
+        sources: ['System Error'],
+        escalate: true,
+        reasoning: 'Error accessing medicine information'
+      };
+    }
+  }
+
+  private isSimpleGreeting(message: string): boolean {
+    const lowerMessage = message.toLowerCase().trim();
+    const greetings = [
+      'hello', 'hi', 'hey', 'good morning', 'good afternoon', 
+      'good evening', 'how are you', 'what\'s up', 'greetings'
+    ];
+    
+    return greetings.some(greeting => 
+      lowerMessage === greeting || 
+      lowerMessage.startsWith(greeting + ' ') ||
+      lowerMessage.endsWith(' ' + greeting)
+    );
   }
 }
