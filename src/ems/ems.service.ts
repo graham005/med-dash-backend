@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { EMSRequest } from './entities/ems.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Paramedic } from 'src/users/entities/paramedic.entity';
@@ -21,10 +21,25 @@ export class EMSService {
     private readonly paramedicRepo: Repository<Paramedic>,
     @InjectRepository(Patient)
     private readonly patientRepo: Repository<Patient>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   async createRequest(createDto: CreateEmsRequestDto, patient: User): Promise<EMSRequest> {
     try {
+      // Check if patient already has an active request
+      const existingPatientRequest = await this.emsRequestRepo.findOne({
+        where: {
+          patient: { id: patient.id },
+          status: In([EMSStatus.PENDING, EMSStatus.ENROUTE, EMSStatus.ARRIVED])
+        },
+        relations: ['patient']
+      });
+
+      if (existingPatientRequest) {
+        throw new BadRequestException('You already have an active EMS request. Please wait for it to be completed or cancelled before creating a new one.');
+      }
+
       const req = this.emsRequestRepo.create({
         ...createDto,
         patient,
@@ -35,10 +50,7 @@ export class EMSService {
 
       const savedRequest = await this.emsRequestRepo.save(req);
       
-      // Auto-assign paramedic based on priority and location
-      // this.autoAssignParamedic(savedRequest.id, createDto.lat, createDto.lng, createDto.priority);
-      
-      this.logger.log(`EMS request created: ${savedRequest.id} for patient: ${patient.firstName}`);
+      this.logger.log(`EMS request created: ${savedRequest.id} for patient: ${patient.id}`);
       return savedRequest;
     } catch (error) {
       this.logger.error(`Error creating EMS request: ${error.message}`);
@@ -59,15 +71,12 @@ export class EMSService {
       throw new BadRequestException('Unauthorized to update this request');
     }
 
-    req.paramedic = paramedic;
+    // Update paramedic location
     req.paramedicLat = updateDto.lat;
     req.paramedicLng = updateDto.lng;
 
-    // Auto-update status if paramedic is approaching
-    if (req.status === EMSStatus.PENDING) {
-      req.status = EMSStatus.ENROUTE;
-      req.dispatchTime = new Date();
-    }
+    // Log location update
+    this.logger.log(`Paramedic ${paramedic.id} location updated for request ${requestId}: ${updateDto.lat}, ${updateDto.lng}`);
 
     return this.emsRequestRepo.save(req);
   }
@@ -110,7 +119,6 @@ export class EMSService {
       where: { id: requestId }, 
       relations: ['patient', 'paramedic']
     });
-    console.log(request)
     
     if (!request) throw new NotFoundException('EMS Request not found');
     return request;
@@ -144,7 +152,6 @@ export class EMSService {
         });
         return request
       }
-      // If no patient profile, return empty array
       throw new NotFoundException('No profile');
     }
 
@@ -163,43 +170,160 @@ export class EMSService {
         });
         return request
       }
-      // If no paramedic profile, return empty array
       throw new NotFoundException('No profile');
     }
 
-    // For other roles, return empty array
-      throw new NotFoundException('No roles');
+    throw new NotFoundException('No roles');
   }
 
-  async assignParamedic(requestId: string, paramedicId: string): Promise<EMSRequest> {
-    const request = await this.emsRequestRepo.findOne({ where: { id: requestId } });
+  // // Updated to accept user context and validate permissions
+  // async assignParamedic(requestId: string, paramedicId: string, user?: any): Promise<EMSRequest> {
+  //   const request = await this.emsRequestRepo.findOne({ 
+  //     where: { id: requestId },
+  //     relations: ['patient', 'paramedic']
+  //   });
+  //   if (!request) throw new NotFoundException('EMS Request not found');
+
+  //   // For paramedics, they can only assign themselves
+  //   if (user && user.role === UserRole.PARAMEDIC && user.id !== paramedicId) {
+  //     throw new BadRequestException('Paramedics can only assign themselves to requests');
+  //   }
+
+  //   // Get the paramedic user directly by ID (since paramedicId is the user ID)
+  //   const paramedicUser = await this.userRepo.findOne({ 
+  //     where: { id: paramedicId, userRole: UserRole.PARAMEDIC }
+  //   });
+  //   if (!paramedicUser) throw new NotFoundException('Paramedic not found');
+
+  //   // Check if paramedic already has an active request
+  //   const existingParamedicRequest = await this.emsRequestRepo.findOne({
+  //     where: {
+  //       paramedic: { id: paramedicUser.id },
+  //       status: In([EMSStatus.PENDING, EMSStatus.ENROUTE, EMSStatus.ARRIVED])
+  //     },
+  //     relations: ['paramedic']
+  //   });
+
+  //   if (existingParamedicRequest) {
+  //     throw new BadRequestException('This paramedic is already assigned to an active EMS request. Please complete or cancel the current request first.');
+  //   }
+
+  //   // Check if request is already assigned
+  //   if (request.paramedic) {
+  //     throw new BadRequestException('This request is already assigned to another paramedic');
+  //   }
+
+  //   request.paramedic = paramedicUser;
+  //   request.status = EMSStatus.ENROUTE;
+  //   request.dispatchTime = new Date();
+
+  //   const savedRequest = await this.emsRequestRepo.save(request);
+  //   this.logger.log(`Paramedic ${paramedicUser.id} assigned to request ${requestId}`);
+    
+  //   return savedRequest;
+  // }
+
+  // Enhanced assign paramedic method that can optionally include initial location
+  async assignParamedic(requestId: string, paramedicId: string, user?: any, initialLocation?: { lat: number; lng: number }): Promise<EMSRequest> {
+    const request = await this.emsRequestRepo.findOne({ 
+      where: { id: requestId },
+      relations: ['patient', 'paramedic']
+    });
     if (!request) throw new NotFoundException('EMS Request not found');
 
-    const paramedic = await this.paramedicRepo.findOne({ 
-      where: { id: paramedicId },
-      relations: ['user']
-    });
-    if (!paramedic) throw new NotFoundException('Paramedic not found');
+    // For paramedics, they can only assign themselves
+    if (user && user.role === UserRole.PARAMEDIC && user.id !== paramedicId) {
+      throw new BadRequestException('Paramedics can only assign themselves to requests');
+    }
 
-    request.paramedic = paramedic.user;
+    // Get the paramedic user directly by ID
+    const paramedicUser = await this.userRepo.findOne({ 
+      where: { id: paramedicId, userRole: UserRole.PARAMEDIC }
+    });
+    if (!paramedicUser) throw new NotFoundException('Paramedic not found');
+
+    // Check if paramedic already has an active request
+    const existingParamedicRequest = await this.emsRequestRepo.findOne({
+      where: {
+        paramedic: { id: paramedicUser.id },
+        status: In([EMSStatus.PENDING, EMSStatus.ENROUTE, EMSStatus.ARRIVED])
+      },
+      relations: ['paramedic']
+    });
+
+    if (existingParamedicRequest) {
+      throw new BadRequestException('This paramedic is already assigned to an active EMS request. Please complete or cancel the current request first.');
+    }
+
+    // Check if request is already assigned
+    if (request.paramedic) {
+      throw new BadRequestException('This request is already assigned to another paramedic');
+    }
+
+    // Assign paramedic
+    request.paramedic = paramedicUser;
     request.status = EMSStatus.ENROUTE;
     request.dispatchTime = new Date();
 
-    return this.emsRequestRepo.save(request);
+    // If initial location is provided, set it immediately
+    if (initialLocation) {
+      request.paramedicLat = initialLocation.lat;
+      request.paramedicLng = initialLocation.lng;
+      this.logger.log(`Initial paramedic location set: ${initialLocation.lat}, ${initialLocation.lng}`);
+    }
+
+    const savedRequest = await this.emsRequestRepo.save(request);
+    this.logger.log(`Paramedic ${paramedicUser.id} assigned to request ${requestId}${initialLocation ? ' with initial location' : ''}`);
+    
+    return savedRequest;
   }
 
-  private async autoAssignParamedic(requestId: string, lat: number, lng: number, priority: any): Promise<void> {
-    // Simple auto-assignment logic - in production, you'd use more sophisticated algorithms
-    const availableParamedics = await this.paramedicRepo.find({
-      relations: ['user']
+  // Add method to assign with location in one call
+  async assignParamedicWithLocation(
+    requestId: string, 
+    paramedicId: string, 
+    lat: number, 
+    lng: number, 
+    user?: any
+  ): Promise<EMSRequest> {
+    const request = await this.assignParamedic(requestId, paramedicId, user, { lat, lng });
+    
+    this.logger.log(`Paramedic ${paramedicId} assigned to request ${requestId} with location ${lat}, ${lng}`);
+    
+    return request;
+  }
+
+  // Helper method to check if a user can create a request
+  async canUserCreateRequest(userId: string, userRole: UserRole): Promise<boolean> {
+    const activeRequest = await this.emsRequestRepo.findOne({
+      where: userRole === UserRole.PATIENT 
+        ? { 
+            patient: { id: userId },
+            status: In([EMSStatus.PENDING, EMSStatus.ENROUTE, EMSStatus.ARRIVED])
+          }
+        : {
+            paramedic: { id: userId },
+            status: In([EMSStatus.PENDING, EMSStatus.ENROUTE, EMSStatus.ARRIVED])
+          }
     });
 
-    if (availableParamedics.length > 0) {
-      // For now, assign the first available paramedic
-      // In production, you'd consider location, availability, workload, etc.
-      const paramedic = availableParamedics[0];
-      await this.assignParamedic(requestId, paramedic.id);
-    }
+    return !activeRequest;
+  }
+
+  // Helper method to get user's current active request
+  async getUserActiveRequest(userId: string, userRole: UserRole): Promise<EMSRequest | null> {
+    return await this.emsRequestRepo.findOne({
+      where: userRole === UserRole.PATIENT 
+        ? { 
+            patient: { id: userId },
+            status: In([EMSStatus.PENDING, EMSStatus.ENROUTE, EMSStatus.ARRIVED])
+          }
+        : {
+            paramedic: { id: userId },
+            status: In([EMSStatus.PENDING, EMSStatus.ENROUTE, EMSStatus.ARRIVED])
+          },
+      relations: ['patient', 'paramedic']
+    });
   }
 
   private isValidStatusTransition(currentStatus: EMSStatus, newStatus: EMSStatus): boolean {

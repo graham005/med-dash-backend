@@ -10,6 +10,12 @@ import { CreateEmsRequestDto } from './dto/create-ems-request.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 
+// Create DTO for assignment with location
+class AssignWithLocationDto {
+  lat: number;
+  lng: number;
+}
+
 @ApiTags('EMS')
 @Controller('ems')
 @UseGuards(RolesGuard)
@@ -63,16 +69,33 @@ export class EMSController {
     return this.emsService.updateStatus(requestId, updateDto, user);
   }
 
- 
-
   @Post(':id/assign/:paramedicId')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Manually assign paramedic to request' })
+  @Roles(UserRole.ADMIN, UserRole.PARAMEDIC)
+  @ApiOperation({ summary: 'Assign paramedic to request' })
   async assignParamedic(
     @Param('id') requestId: string,
-    @Param('paramedicId') paramedicId: string
+    @Param('paramedicId') paramedicId: string,
+    @UserDecorator() user: User
   ) {
-    return this.emsService.assignParamedic(requestId, paramedicId);
+    return this.emsService.assignParamedic(requestId, paramedicId, user);
+  }
+
+  @Post(':id/assign/:paramedicId/with-location')
+  @Roles(UserRole.ADMIN, UserRole.PARAMEDIC)
+  @ApiOperation({ summary: 'Assign paramedic to request with initial location' })
+  async assignParamedicWithLocation(
+    @Param('id') requestId: string,
+    @Param('paramedicId') paramedicId: string,
+    @Body() locationDto: AssignWithLocationDto,
+    @UserDecorator() user: User
+  ) {
+    return this.emsService.assignParamedicWithLocation(
+      requestId, 
+      paramedicId, 
+      locationDto.lat, 
+      locationDto.lng, 
+      user
+    );
   }
 
   @Get(':id')
