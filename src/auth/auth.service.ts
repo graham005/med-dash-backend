@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { UpdateAuthDto } from './dto/update-auth.dto';
 import { SignInDto } from './dto/signin.dto';
 import { SignUpDto } from './dto/signup.dto';
@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt'
 import * as Bcrypt from 'bcrypt'
 import { Auth } from './entities/auth.entity';
-import { UserRole } from 'src/enums';
+import { UserRole, UserStatus } from 'src/enums';
 import { Patient } from 'src/users/entities/patient.entity';
 import { Doctor } from 'src/users/entities/doctor.entity';
 import { Pharmacist } from 'src/users/entities/pharmacist.entity';
@@ -17,6 +17,8 @@ import { AdminDto, DoctorDto, PatientDto, PharmacistDto, UpdateAdminDto, UpdateD
 import { Admin } from 'src/users/entities/admin.entity';
 import { ParamedicDto, UpdateParamedicDto } from './dto/profiles-dto';
 import { Paramedic } from 'src/users/entities/paramedic.entity';
+import { v4 as uuidv4 } from 'uuid';
+import { EmailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -29,7 +31,8 @@ export class AuthService {
     @InjectRepository(Admin) private readonly adminRepository: Repository<Admin>,
     @InjectRepository(Paramedic) private readonly paramedicRepository: Repository<Paramedic>,
     private readonly jwtService: JwtService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly emailService: EmailService
   ) { }
 
   //Helper method to hash the password
@@ -107,7 +110,6 @@ export class AuthService {
   async signIn(signInDto: SignInDto) {
     const foundUser = await this.userRepository.findOne({
       where: { email: signInDto.email }
-
     });
     if (!foundUser) {
       throw new NotFoundException(`User with the email ${signInDto.email} not found`)
@@ -135,7 +137,8 @@ export class AuthService {
   async signUp(signUpDto: SignUpDto) {
     const existingUser = await this.userRepository.findOne({ where: { email: signUpDto.email } });
     if (existingUser) {
-      throw new Error('User with this email already exists');
+      console.log('User with this email already exists')
+      //throw new Error('User with this email already exists');
     }
     const newUser = this.userRepository.create({
       firstName: signUpDto.firstName,
@@ -149,12 +152,25 @@ export class AuthService {
     const savedUser = await this.userRepository
       .save(newUser)
       .then((user) => {
+        console.log("User",user)
         return user
       })
       .catch((error) => {
         console.error('Error creating user =>', error)
         throw new Error('Failed to create user')
       });
+      console.log("Saved User", savedUser)
+      
+    // Send welcome email
+    try {
+      await this.emailService.sendWelcomeEmail(
+        savedUser.email,
+        savedUser.firstName
+      );
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+    }
+        
     return this.excludePassword(savedUser)
   }
 
@@ -212,12 +228,36 @@ export class AuthService {
       throw new NotFoundException('User not found')
     }
     if (!patientDto) throw new Error('PatientDto is required');
+    
     const newProfile = this.patientRepository.create({
       user: foundUser,
       dateOfBirth: patientDto.dateOfBirth,
       bloodType: patientDto.bloodType,
     });
+    
     const savedProfile = await this.patientRepository.save(newProfile);
+    
+    // Update user status to active
+    await this.userRepository.update(foundUser.id, { userStatus: UserStatus.ACTIVE });
+    
+    // Refetch user with updated status
+    const updatedUser = await this.userRepository.findOne({ where: { id: foundUser.id } });
+    if (!updatedUser) {
+      throw new NotFoundException('Updated user not found');
+    }
+    savedProfile.user = updatedUser;
+    
+    // Send profile completion email
+    try {
+      await this.emailService.sendProfileCompletionEmail(
+        updatedUser.email,
+        updatedUser.firstName,
+        'Patient'
+      );
+    } catch (error) {
+      console.error('Failed to send profile completion email:', error);
+    }
+    
     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
     return { ...savedProfile, user: userWithoutPassword };
   }
@@ -258,15 +298,39 @@ export class AuthService {
       throw new NotFoundException('User not found')
     }
     if (!doctorDto) throw new Error('DoctorDto is required');
+    
     const newProfile = this.doctorRepository.create({
       user: foundUser,
       specialization: doctorDto.specialization,
       qualification: doctorDto.qualification,
       licenseNumber: doctorDto.licenseNumber,
-      yearsOfExperience: doctorDto.yearsOfExperience, // <-- ensure this is present
+      yearsOfExperience: doctorDto.yearsOfExperience,
       hospitalAffiliation: doctorDto.hospitalAffiliation,
     });
+    
     const savedProfile = await this.doctorRepository.save(newProfile);
+    
+    // Update user status to active
+    await this.userRepository.update(foundUser.id, { userStatus: UserStatus.ACTIVE });
+    
+    // Refetch user with updated status
+    const updatedUser = await this.userRepository.findOne({ where: { id: foundUser.id } });
+    if (!updatedUser) {
+      throw new NotFoundException('Updated user not found');
+    }
+    savedProfile.user = updatedUser;
+    
+    // Send profile completion email
+    try {
+      await this.emailService.sendProfileCompletionEmail(
+        updatedUser.email,
+        updatedUser.firstName,
+        'Doctor'
+      );
+    } catch (error) {
+      console.error('Failed to send profile completion email:', error);
+    }
+    
     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
     return { ...savedProfile, user: userWithoutPassword };
   }
@@ -307,15 +371,38 @@ export class AuthService {
       throw new NotFoundException('User not found')
     }
     if (!pharmacistDto) throw new Error('PharmacistDto is required');
+    
     const newProfile = this.pharmacistRepository.create({
       user: foundUser,
       pharmacyName: pharmacistDto.pharmacyName,
       licenseNumber: pharmacistDto.licenseNumber,
     });
+    
     const savedProfile = await this.pharmacistRepository.save(newProfile);
+    
+    // Update user status to active
+    await this.userRepository.update(foundUser.id, { userStatus: UserStatus.ACTIVE });
+    
+    // Refetch user with updated status
+    const updatedUser = await this.userRepository.findOne({ where: { id: foundUser.id } });
+    if (!updatedUser) {
+      throw new NotFoundException('Updated user not found');
+    }
+    savedProfile.user = updatedUser;
+    
+    // Send profile completion email
+    try {
+      await this.emailService.sendProfileCompletionEmail(
+        updatedUser.email,
+        updatedUser.firstName,
+        'Pharmacist'
+      );
+    } catch (error) {
+      console.error('Failed to send profile completion email:', error);
+    }
+    
     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
     return { ...savedProfile, user: userWithoutPassword };
-
   }
 
   async updatePharmacistProfile(
@@ -354,11 +441,35 @@ export class AuthService {
       console.error('User not found')
       throw new NotFoundException('User not found')
     }
+    
     const newProfile = this.adminRepository.create({
       user: foundUser,
       department: adminDto.department,
     })
+    
     const savedProfile = await this.adminRepository.save(newProfile);
+    
+    // Update user status to active
+    await this.userRepository.update(foundUser.id, { userStatus: UserStatus.ACTIVE });
+    
+    // Refetch user with updated status
+    const updatedUser = await this.userRepository.findOne({ where: { id: foundUser.id } });
+    if (!updatedUser) {
+      throw new NotFoundException('Updated user not found');
+    }
+    savedProfile.user = updatedUser;
+    
+    // Send profile completion email
+    try {
+      await this.emailService.sendProfileCompletionEmail(
+        updatedUser.email,
+        updatedUser.firstName,
+        'Admin'
+      );
+    } catch (error) {
+      console.error('Failed to send profile completion email:', error);
+    }
+    
     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
     return { ...savedProfile, user: userWithoutPassword };
   }
@@ -411,13 +522,37 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
     if (!paramedicDto) throw new Error('ParamedicDto is required');
+    
     const newProfile = this.paramedicRepository.create({
       user: foundUser,
       ambulanceId: paramedicDto.ambulanceId,
       licenseNumber: paramedicDto.licenseNumber,
       station: paramedicDto.station,
     });
+    
     const savedProfile = await this.paramedicRepository.save(newProfile);
+    
+    // Update user status to active
+    await this.userRepository.update(foundUser.id, { userStatus: UserStatus.ACTIVE });
+    
+    // Refetch user with updated status
+    const updatedUser = await this.userRepository.findOne({ where: { id: foundUser.id } });
+    if (!updatedUser) {
+      throw new NotFoundException('Updated user not found');
+    }
+    savedProfile.user = updatedUser;
+    
+    // Send profile completion email
+    try {
+      await this.emailService.sendProfileCompletionEmail(
+        updatedUser.email,
+        updatedUser.firstName,
+        'Paramedic'
+      );
+    } catch (error) {
+      console.error('Failed to send profile completion email:', error);
+    }
+    
     const { passwordHash, ...userWithoutPassword } = savedProfile.user;
     return { ...savedProfile, user: userWithoutPassword };
   }
@@ -490,7 +625,7 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    let profile: Patient | Doctor | Pharmacist | Admin | null = null;
+    let profile: Patient | Doctor | Pharmacist | Admin | Paramedic | null = null;
 
     switch (foundUser.userRole) {
       case UserRole.PATIENT: {
@@ -509,6 +644,10 @@ export class AuthService {
         profile = await this.adminRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
         break;
       }
+      case UserRole.PARAMEDIC: {
+        profile = await this.paramedicRepository.findOne({ where: { user: { id: foundUser.id } }, relations: ['user'] });
+        break;
+      }
       default:
         profile = null;
     }
@@ -517,5 +656,46 @@ export class AuthService {
       user: this.excludePassword(foundUser),
       profile,
     };
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      // Don't reveal if user exists
+      return;
+    }
+
+    // Generate token and expiry
+    const token = uuidv4();
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await this.userRepository.save(user);
+
+    // Send email with reset link
+    const resetLink = `https://${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    await this.emailService.sendPasswordResetEmail(user.email, user.firstName, resetLink);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { resetPasswordToken: token } });
+    if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+
+    user.passwordHash = await this.hashData(newPassword);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await this.userRepository.save(user);
+    
+    // Send password reset confirmation email
+    try {
+      await this.emailService.sendPasswordResetConfirmation(
+        user.email,
+        user.firstName
+      );
+    } catch (error) {
+      console.error('Failed to send password reset confirmation email:', error);
+    }
   }
 }

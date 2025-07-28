@@ -23,7 +23,7 @@ export class SignUpDto {
     password: string;
 
     @ApiProperty()
-    @IsPhoneNumber()
+    @IsString()
     phoneNumber: string;
 
 }
