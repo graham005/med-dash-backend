@@ -35,6 +35,6 @@ export class Appointment {
     @Column({nullable: true})
     meetingUrl?: string;
     
-    @ManyToOne(() => AvailabilitySlot)
+    @ManyToOne(() => AvailabilitySlot, {cascade: true})
     availabilitySlot: AvailabilitySlot;
 }

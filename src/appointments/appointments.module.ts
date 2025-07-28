@@ -9,10 +9,11 @@ import { User } from 'src/users/entities/user.entity';
 import { AvailabilitySlot } from 'src/availability/entities/availability.entity';
 import { Patient } from 'src/users/entities/patient.entity';
 import { ZoomService } from 'src/zoom/zoom.service';
+import { MailModule } from 'src/mail/mail.module';
 
 @Module({
   imports: [
-    DatabaseModule,
+    DatabaseModule, MailModule,
     TypeOrmModule.forFeature([Appointment, Doctor, User, AvailabilitySlot, Patient])
   ],
   controllers: [AppointmentsController],
