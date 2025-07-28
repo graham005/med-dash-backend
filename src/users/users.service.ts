@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import * as Bcrypt from 'bcrypt'
-import { UserRole } from 'src/enums';
+import { UserRole, UserStatus } from 'src/enums';
 import { Public } from 'src/auth/decorators/public.decorator';
 import { Doctor } from './entities/doctor.entity';
 import { Patient } from './entities/patient.entity';
@@ -96,18 +96,36 @@ export class UsersService {
     return this.excludePassword(updatedUser);
   }
 
-  remove(id: string) {
-    return this.userRepository.delete(id)
-      .then((result) => {
-        if (result.affected === 0){
-          throw new NotFoundException('User not found')
-        }
-        return { message: 'User deleted successfully'}
-      })
-      .catch((error) => {
-        console.error('Error deleting user:', error);
-        throw new Error(`Error deleting user: ${error.message}`)
-      })
+  async remove(id: string) {
+    try {
+      // Check if user exists first
+      const user = await this.userRepository.findOne({ where: { id } });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const result = await this.userRepository.delete(id);
+      
+      if (result.affected === 0) {
+        throw new NotFoundException('User not found');
+      }
+      
+      return { message: 'User deleted successfully' };
+
+    } catch (error) {
+      console.error('Error removing user:', error);
+      
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      // Handle foreign key constraint errors
+      if (error.code === '23503') {
+        throw new Error('Cannot delete user: User has associated records');
+      }
+      
+      throw new Error(`Error removing user: ${error.message}`);
+    }
   }
 
   async getAllProfiles() {
