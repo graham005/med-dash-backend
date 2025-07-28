@@ -21,6 +21,7 @@ import { ZoomService } from './zoom/zoom.service';
 import {  MessagingModule } from './message/message.module';
 import { MailModule } from './mail/mail.module';
 import { EMSModule } from './ems/ems.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { EMSModule } from './ems/ems.module';
     }),
     AuthModule, UsersModule, AppointmentsModule,DatabaseModule, AvailabilityModule,
     MedicineModule, PrescriptionModule, PharmacyOrderModule, ConsultationModule, EPrescriptionModule, 
-    HealthBotModule, PaymentsModule, MessagingModule, MailModule, EMSModule
+    HealthBotModule, PaymentsModule, MessagingModule, MailModule, EMSModule, AdminModule
   ],
   controllers: [AppController],
   providers: [AppService,
