@@ -7,7 +7,7 @@ import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { User } from 'src/users/entities/user.entity';
 import { Appointment } from 'src/appointments/entities/appointment.entity';
 import { PharmacyOrder } from 'src/pharmacy/pharmacy-order/entities/pharmacy-order.entity';
-import { AppointmentStatus, OrderStatus } from 'src/enums';
+import { AppointmentStatus, OrderStatus, UserRole } from 'src/enums';
 import * as crypto from 'crypto';
 import axios from 'axios';
 
@@ -60,7 +60,7 @@ export class PaymentsService {
         email: createPaymentDto.email,
         amount: Math.round(createPaymentDto.amount * 100), // Convert to cents (KES cents)
         reference: reference,
-        currency: 'KES', // Changed from NGN to KES
+        currency: 'KES', 
         callback_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/verify`,
         metadata: {
           custom_fields: [
@@ -234,11 +234,22 @@ export class PaymentsService {
     }
   }
 
-  async getPaymentById(id: string, user: User): Promise<Payment> {
-    const payment = await this.paymentRepository.findOne({
-      where: { id, user: { id: user.id } },
-      relations: ['user', 'appointment', 'pharmacyOrder']
-    });
+  async getPaymentById(id: string, user: any): Promise<Payment> {
+    let payment: Payment | null = null;
+
+    if (user.role === UserRole.PATIENT) {
+      // Patient: can only see their own payment by id
+      payment = await this.paymentRepository.findOne({
+        where: { id, user: { id: user.id } },
+        relations: ['user', 'appointment', 'pharmacyOrder']
+      });
+    } else if (user.role === UserRole.ADMIN) {
+      // Admin: can see any payment by id
+      payment = await this.paymentRepository.findOne({
+        where: { id },
+        relations: ['user', 'appointment', 'pharmacyOrder']
+      });
+    }
 
     if (!payment) {
       throw new NotFoundException('Payment not found');
@@ -247,12 +258,26 @@ export class PaymentsService {
     return payment;
   }
 
-  async listPayments(user: User): Promise<Payment[]> {
-    return await this.paymentRepository.find({
-      where: { user: { id: user.id } },
-      relations: ['appointment', 'pharmacyOrder'],
-      order: { createdAt: 'DESC' }
-    });
+  async listPayments(user: any): Promise<Payment[]> {
+    if (user.role === UserRole.PATIENT) {
+      // Patient: return only their payments
+      return await this.paymentRepository.find({
+        where: { user: { id: user.id } },
+        relations: ['appointment', 'pharmacyOrder'],
+        order: { createdAt: 'DESC' }
+      });
+    }
+
+    if (user.role === UserRole.ADMIN) {
+      // Admin: return all payments
+      return await this.paymentRepository.find({
+        relations: ['user', 'appointment', 'pharmacyOrder'],
+        order: { createdAt: 'DESC' }
+      });
+    }
+
+    // Other roles: deny access or return empty array
+    return [];
   }
 
   async refundPayment(id: string, user: User): Promise<Payment> {
