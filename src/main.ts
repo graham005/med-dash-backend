@@ -11,7 +11,7 @@ async function bootstrap() {
 
   app.use(helmet());
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:5173'], // Add your frontend URL(s)
+    origin: ['http://localhost:3000', 'https://med-dash-frontend-ubl1.vercel.app'], // Add your frontend URL(s)
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: 'Origin,X-Requested-With,Content-Type,Accept,Authorization,Access-Control-Allow-Headers',
