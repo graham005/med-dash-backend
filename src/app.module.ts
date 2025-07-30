@@ -15,7 +15,6 @@ import { ConfigModule } from '@nestjs/config';
 import { LoggerMiddleware } from './logger.middleware';
 import { APP_GUARD } from '@nestjs/core';
 import { AtGuard } from './auth/guards/at.guard';
-import { HealthBotModule } from './health-bot/health-bot.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ZoomService } from './zoom/zoom.service';
 import {  MessagingModule } from './message/message.module';
@@ -31,7 +30,7 @@ import { AdminModule } from './admin/admin.module';
     }),
     AuthModule, UsersModule, AppointmentsModule,DatabaseModule, AvailabilityModule,
     MedicineModule, PrescriptionModule, PharmacyOrderModule, ConsultationModule, EPrescriptionModule, 
-    HealthBotModule, PaymentsModule, MessagingModule, MailModule, EMSModule, AdminModule
+    PaymentsModule, MessagingModule, MailModule, EMSModule, AdminModule
   ],
   controllers: [AppController],
   providers: [AppService,

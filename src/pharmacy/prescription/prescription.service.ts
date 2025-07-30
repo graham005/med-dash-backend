@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
+import { RequestRefillDto } from './dto/request-refill.dto';
+import { ApproveRefillDto } from './dto/approve-refill.dto';
 import { Patient } from 'src/users/entities/patient.entity';
-import { Prescription } from './entities/prescription.entity';
+import { Prescription, PrescriptionStatus } from './entities/prescription.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Doctor } from 'src/users/entities/doctor.entity';
@@ -236,17 +238,14 @@ export class PrescriptionService {
 
   async findByPatientId(patientId: string): Promise<Prescription[]> {
     try {
-      // Check your Prescription entity to see what the correct relation name is
-      // Replace 'medications' with the correct property name from your entity
+      // Remove the non-existent 'prescribedMedicines' relation
       const prescriptions = await this.prescriptionRepository.find({
         where: { patient: { id: patientId } },
         relations: [
           'prescribedBy', 
           'prescribedBy.user', 
           'patient', 
-          'patient.user', 
-          'prescribedMedicines' // Change this to match your actual entity property
-          // OR it might be: 'medicines', 'items', 'prescriptionMedicines'
+          'patient.user'
         ]
       });
       return prescriptions;
@@ -278,5 +277,203 @@ export class PrescriptionService {
       console.error('Error getting prescription details for bot:', error);
       return [];
     }
+  }
+
+  // Add new refill methods to the existing service
+  async requestRefill(prescriptionId: string, requestRefillDto: RequestRefillDto, user: User): Promise<Prescription> {
+    // Find patient profile
+    const patient = await this.patientRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user']
+    });
+
+    if (!patient) {
+      throw new NotFoundException('Patient profile not found');
+    }
+
+    // Find the prescription
+    const prescription = await this.prescriptionRepository.findOne({
+      where: {
+        id: prescriptionId,
+        patient: { id: patient.id }
+      },
+      relations: ['prescribedBy', 'prescribedBy.user', 'patient', 'patient.user']
+    });
+
+    if (!prescription) {
+      throw new NotFoundException('Prescription not found');
+    }
+
+    // Check if prescription can be refilled
+    if (!prescription.canBeRefilled) {
+      throw new BadRequestException('This prescription cannot be refilled. Either it has expired, reached refill limit, or is not active.');
+    }
+
+    // Check if there's already a pending refill request
+    if (prescription.status === PrescriptionStatus.REFILL_REQUESTED) {
+      throw new BadRequestException('A refill request is already pending for this prescription');
+    }
+
+    // Update prescription status and refill request details
+    prescription.status = PrescriptionStatus.REFILL_REQUESTED;
+    prescription.refillRequestedAt = new Date();
+    prescription.refillRequestNotes = requestRefillDto.notes || null;
+
+    return await this.prescriptionRepository.save(prescription);
+  }
+
+  async approveRefill(prescriptionId: string, approveRefillDto: ApproveRefillDto, user: User): Promise<Prescription> {
+    // Find doctor profile
+    const doctor = await this.doctorRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user']
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    // Find the prescription
+    const prescription = await this.prescriptionRepository.findOne({
+      where: {
+        id: prescriptionId,
+        prescribedBy: { id: doctor.id }
+      },
+      relations: ['prescribedBy', 'prescribedBy.user', 'patient', 'patient.user']
+    });
+
+    if (!prescription) {
+      throw new NotFoundException('Prescription not found or you do not have permission to approve this refill');
+    }
+
+    // Check if prescription has a pending refill request
+    if (prescription.status !== PrescriptionStatus.REFILL_REQUESTED) {
+      throw new BadRequestException('This prescription does not have a pending refill request');
+    }
+
+    // Check if prescription can still be refilled
+    if (!prescription.canBeRefilled) {
+      throw new BadRequestException('This prescription cannot be refilled. Either it has expired or reached refill limit.');
+    }
+
+    // Update prescription
+    prescription.status = PrescriptionStatus.REFILL_APPROVED;
+    prescription.refillsUsed += 1;
+    prescription.lastRefillDate = new Date();
+    prescription.refillRequestedAt = null;
+    prescription.refillRequestNotes = null;
+
+    // Add additional refills if specified
+    if (approveRefillDto.additionalRefills) {
+      prescription.refillsAllowed += approveRefillDto.additionalRefills;
+    }
+
+    return await this.prescriptionRepository.save(prescription);
+  }
+
+  async rejectRefill(prescriptionId: string, rejectionNotes: string, user: User): Promise<Prescription> {
+    // Find doctor profile
+    const doctor = await this.doctorRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user']
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    // Find the prescription
+    const prescription = await this.prescriptionRepository.findOne({
+      where: {
+        id: prescriptionId,
+        prescribedBy: { id: doctor.id }
+      },
+      relations: ['prescribedBy', 'prescribedBy.user', 'patient', 'patient.user']
+    });
+
+    if (!prescription) {
+      throw new NotFoundException('Prescription not found or you do not have permission to reject this refill');
+    }
+
+    // Check if prescription has a pending refill request
+    if (prescription.status !== PrescriptionStatus.REFILL_REQUESTED) {
+      throw new BadRequestException('This prescription does not have a pending refill request');
+    }
+
+    // Reset prescription to active status and clear refill request data
+    prescription.status = PrescriptionStatus.ACTIVE;
+    prescription.refillRequestedAt = null;
+    prescription.refillRequestNotes = rejectionNotes;
+
+    return await this.prescriptionRepository.save(prescription);
+  }
+
+  async getPendingRefillRequests(user: User): Promise<Prescription[]> {
+    // Find doctor profile
+    const doctor = await this.doctorRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user']
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    // Find all prescriptions with pending refill requests for this doctor
+    return await this.prescriptionRepository.find({
+      where: {
+        prescribedBy: { id: doctor.id },
+        status: PrescriptionStatus.REFILL_REQUESTED
+      },
+      relations: ['prescribedBy', 'prescribedBy.user', 'patient', 'patient.user'],
+      order: { refillRequestedAt: 'ASC' }
+    });
+  }
+
+  async getPatientRefillHistory(user: User): Promise<Prescription[]> {
+    // Find patient profile
+    const patient = await this.patientRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user']
+    });
+
+    if (!patient) {
+      throw new NotFoundException('Patient profile not found');
+    }
+
+    // Find all prescriptions for this patient that have refill history
+    return await this.prescriptionRepository.find({
+      where: {
+        patient: { id: patient.id }
+      },
+      relations: ['prescribedBy', 'prescribedBy.user', 'patient', 'patient.user'],
+      order: { lastRefillDate: 'DESC' }
+    });
+  }
+
+  async checkPrescriptionExpiry(): Promise<void> {
+    // This method can be called by a cron job to automatically expire prescriptions
+    const expiredPrescriptions = await this.prescriptionRepository
+      .createQueryBuilder('prescription')
+      .where('prescription.validityDate < :now', { now: new Date() })
+      .andWhere('prescription.status != :expired', { expired: PrescriptionStatus.EXPIRED })
+      .getMany();
+
+    for (const prescription of expiredPrescriptions) {
+      prescription.status = PrescriptionStatus.EXPIRED;
+      await this.prescriptionRepository.save(prescription);
+    }
+  }
+
+  async validatePrescriptionForOrder(prescriptionId: string): Promise<boolean> {
+    const prescription = await this.prescriptionRepository.findOne({
+      where: { id: prescriptionId }
+    });
+
+    if (!prescription) {
+      return false;
+    }
+
+    return prescription.canBeOrdered;
   }
 }

@@ -10,10 +10,11 @@ import { UsersModule } from 'src/users/users.module';
 import { User } from 'src/users/entities/user.entity';
 import { Patient } from 'src/users/entities/patient.entity';
 import { MailModule } from 'src/mail/mail.module';
+import { PrescriptionModule } from '../prescription/prescription.module';
 
 @Module({
   imports: [
-    DatabaseModule, MailModule,
+    DatabaseModule, MailModule, PrescriptionModule,
     TypeOrmModule.forFeature([PharmacyOrder, Prescription, Pharmacist, User, Patient]),
     UsersModule
   ],

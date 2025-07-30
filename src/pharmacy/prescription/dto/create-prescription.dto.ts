@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsString, IsNotEmpty, IsDateString, IsArray, ValidateNested, IsNumber } from "class-validator";
+import { IsString, IsNotEmpty, IsDateString, IsArray, ValidateNested, IsNumber, IsInt, IsOptional, Max, Min } from "class-validator";
 
 export class CreatePrescriptionDto {
     @ApiProperty()
@@ -15,11 +15,17 @@ export class CreatePrescriptionDto {
 
     @ApiProperty()
     @IsDateString()
-    date: string;
+    date: string; // Keep as string for input validation
 
     @ApiProperty()
     @IsDateString()
-    validityDate: Date;
+    validityDate: string; // Change to string to match date
+
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    @Max(12)
+    refillsAllowed?: number; // This is fine as optional
 
     @ApiProperty()
     @IsArray()

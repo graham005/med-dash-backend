@@ -17,6 +17,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
                 synchronize: configService.getOrThrow<boolean>('DB_SYNC', true),
                 logging: configService.getOrThrow<boolean>('DB_LOGGING', false),
                 migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
+                ssl: {
+                    rejectUnauthorized: false
+                },
             }),
             inject: [ConfigService],
         })

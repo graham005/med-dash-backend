@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Put } from '@nestjs/common';
 import { PrescriptionService } from './prescription.service';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
+import { RequestRefillDto } from './dto/request-refill.dto';
+import { ApproveRefillDto } from './dto/approve-refill.dto';
 import { User as UserDecorator } from '../../auth/decorators/user.decorator'
 import { User } from 'src/users/entities/user.entity';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
@@ -54,5 +56,54 @@ export class PrescriptionController {
     @UserDecorator() user: User
   ) {
     return this.prescriptionService.remove(id, user);
+  }
+
+  // New refill endpoints
+  @Roles(UserRole.PATIENT)
+  @Post(':id/request-refill')
+  requestRefill(
+    @Param('id') id: string,
+    @Body() requestRefillDto: RequestRefillDto,
+    @UserDecorator() user: User
+  ) {
+    return this.prescriptionService.requestRefill(id, requestRefillDto, user);
+  }
+
+  @Roles(UserRole.DOCTOR)
+  @Put(':id/approve-refill')
+  approveRefill(
+    @Param('id') id: string,
+    @Body() approveRefillDto: ApproveRefillDto,
+    @UserDecorator() user: User
+  ) {
+    return this.prescriptionService.approveRefill(id, approveRefillDto, user);
+  }
+
+  @Roles(UserRole.DOCTOR)
+  @Put(':id/reject-refill')
+  rejectRefill(
+    @Param('id') id: string,
+    @Body() body: { rejectionNotes: string },
+    @UserDecorator() user: User
+  ) {
+    return this.prescriptionService.rejectRefill(id, body.rejectionNotes, user);
+  }
+
+  @Roles(UserRole.DOCTOR)
+  @Get('pending-refills')
+  getPendingRefillRequests(@UserDecorator() user: User) {
+    return this.prescriptionService.getPendingRefillRequests(user);
+  }
+
+  @Roles(UserRole.PATIENT)
+  @Get('refill-history')
+  getPatientRefillHistory(@UserDecorator() user: User) {
+    return this.prescriptionService.getPatientRefillHistory(user);
+  }
+
+  @Roles(UserRole.DOCTOR, UserRole.PHARMACIST)
+  @Get(':id/validate-for-order')
+  validatePrescriptionForOrder(@Param('id') id: string) {
+    return this.prescriptionService.validatePrescriptionForOrder(id);
   }
 }

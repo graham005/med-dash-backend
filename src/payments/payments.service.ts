@@ -61,7 +61,7 @@ export class PaymentsService {
         amount: Math.round(createPaymentDto.amount * 100), // Convert to cents (KES cents)
         reference: reference,
         currency: 'KES', 
-        callback_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/verify`,
+        callback_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/close`,
         metadata: {
           custom_fields: [
             {

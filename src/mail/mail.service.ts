@@ -753,4 +753,127 @@ export class EmailService {
       `,
     });
   }
+
+  async sendRefillRequestNotification(to: string, doctorName: string, requestDetails: any) {
+    await this.mailerService.sendMail({
+      to,
+      subject: `Prescription Refill Request - ${requestDetails.prescriptionName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e40af;">Hello ${doctorName},</h2>
+          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+            <h3 style="color: #92400e; margin-top: 0;">💊 Prescription Refill Request</h3>
+            <p style="color: #92400e; margin-bottom: 0;">
+              ${requestDetails.patientName} has requested a refill for prescription "${requestDetails.prescriptionName}".
+            </p>
+          </div>
+          
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #374151; margin-top: 0;">📋 Request Details</h3>
+            <ul style="color: #6b7280; list-style: none; padding-left: 0;">
+              <li style="margin-bottom: 8px;"><strong>Patient:</strong> ${requestDetails.patientName}</li>
+              <li style="margin-bottom: 8px;"><strong>Prescription:</strong> ${requestDetails.prescriptionName}</li>
+              <li style="margin-bottom: 8px;"><strong>Refills Used:</strong> ${requestDetails.refillsUsed}/${requestDetails.refillsAllowed}</li>
+              ${requestDetails.requestNotes ? `<li style="margin-bottom: 8px;"><strong>Patient Notes:</strong> ${requestDetails.requestNotes}</li>` : ''}
+            </ul>
+          </div>
+
+          <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0;">
+            <h4 style="color: #047857; margin-top: 0;">🔄 Next Steps</h4>
+            <ul style="color: #065f46; margin-bottom: 0;">
+              <li>Review the patient's medical history</li>
+              <li>Approve or deny the refill request</li>
+              <li>Add additional refills if needed</li>
+            </ul>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${requestDetails.requestUrl}" style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Review Request</a>
+          </div>
+
+          <p>You can manage this request through your doctor dashboard.</p>
+          <p>Best regards,<br>The MedDash Team</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendRefillApprovalNotification(to: string, patientName: string, approvalDetails: any) {
+    await this.mailerService.sendMail({
+      to,
+      subject: `Prescription Refill Approved - ${approvalDetails.prescriptionName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e40af;">Hello ${patientName},</h2>
+          <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0;">
+            <h3 style="color: #047857; margin-top: 0;">✅ Refill Request Approved!</h3>
+            <p style="color: #065f46; margin-bottom: 0;">
+              Your refill request for "${approvalDetails.prescriptionName}" has been approved by ${approvalDetails.doctorName}.
+            </p>
+          </div>
+          
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #374151; margin-top: 0;">💊 Prescription Details</h3>
+            <ul style="color: #6b7280; list-style: none; padding-left: 0;">
+              <li style="margin-bottom: 8px;"><strong>Prescription:</strong> ${approvalDetails.prescriptionName}</li>
+              <li style="margin-bottom: 8px;"><strong>Approved by:</strong> ${approvalDetails.doctorName}</li>
+              <li style="margin-bottom: 8px;"><strong>Refills Remaining:</strong> ${approvalDetails.refillsRemaining}</li>
+              ${approvalDetails.approvalNotes ? `<li style="margin-bottom: 8px;"><strong>Doctor Notes:</strong> ${approvalDetails.approvalNotes}</li>` : ''}
+            </ul>
+          </div>
+
+          <div style="background-color: #ddd6fe; border-left: 4px solid #7c3aed; padding: 15px; margin: 20px 0;">
+            <h4 style="color: #5b21b6; margin-top: 0;">🛍️ Next Steps</h4>
+            <p style="color: #6b21a8; margin-bottom: 0;">You can now order this prescription from your preferred pharmacy.</p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${approvalDetails.prescriptionUrl}" style="background-color: #1e40af; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Order Now</a>
+          </div>
+
+          <p>Thank you for using MedDash for your healthcare needs.</p>
+          <p>Best regards,<br>The MedDash Team</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendRefillDenialNotification(to: string, patientName: string, denialDetails: any) {
+    await this.mailerService.sendMail({
+      to,
+      subject: `Prescription Refill Request Update - ${denialDetails.prescriptionName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e40af;">Hello ${patientName},</h2>
+          <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0;">
+            <h3 style="color: #dc2626; margin-top: 0;">📋 Refill Request Update</h3>
+            <p style="color: #dc2626; margin-bottom: 0;">
+              Your refill request for "${denialDetails.prescriptionName}" requires further review by ${denialDetails.doctorName}.
+            </p>
+          </div>
+          
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #374151; margin-top: 0;">💬 Doctor's Response</h3>
+            <p style="color: #6b7280;">${denialDetails.denialReason}</p>
+          </div>
+
+          <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0;">
+            <h4 style="color: #0c4a6e; margin-top: 0;">📞 Next Steps</h4>
+            <ul style="color: #0c4a6e; margin-bottom: 0;">
+              <li>Contact your doctor's office for clarification</li>
+              <li>Schedule an appointment if needed</li>
+              <li>Discuss alternative treatment options</li>
+            </ul>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${denialDetails.prescriptionUrl}" style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">View Prescription</a>
+          </div>
+
+          <p>For any questions, please contact your healthcare provider directly.</p>
+          <p>Best regards,<br>The MedDash Team</p>
+        </div>
+      `,
+    });
+  }
 }

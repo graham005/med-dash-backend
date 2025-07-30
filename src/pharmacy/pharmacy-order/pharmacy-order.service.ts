@@ -36,7 +36,7 @@ export class PharmacyOrderService {
 
     const prescription = await this.prescriptionRepository.findOne({ 
       where: { id: createPharmacyOrderDto.prescriptionId },
-      relations: ['prescribedBy', 'prescribedBy.user', 'patient', 'patient.user', 'medications']
+      relations: ['prescribedBy', 'prescribedBy.user', 'patient', 'patient.user']
     })
     if (!prescription) {
       throw new NotFoundException('Prescription not found');
@@ -197,7 +197,7 @@ export class PharmacyOrderService {
     // Get the order before update for email notifications
     const existingOrder = await this.pharmacyorderRepository.findOne({
       where: { id },
-      relations: ['prescription', 'prescription.prescribedBy', 'prescription.prescribedBy.user', 'prescription.patient', 'prescription.patient.user', 'prescription.medications']
+      relations: ['prescription', 'prescription.prescribedBy', 'prescription.prescribedBy.user', 'prescription.patient', 'prescription.patient.user']
     });
 
     // Check if user is a patient
@@ -369,7 +369,7 @@ export class PharmacyOrderService {
     // Get the order before cancellation for email notifications
     const existingOrder = await this.pharmacyorderRepository.findOne({
       where: { id },
-      relations: ['prescription', 'prescription.prescribedBy', 'prescription.prescribedBy.user', 'prescription.patient', 'prescription.patient.user', 'prescription.medications']
+      relations: ['prescription', 'prescription.prescribedBy', 'prescription.prescribedBy.user', 'prescription.patient', 'prescription.patient.user']
     });
 
     // Check if user is a patient
