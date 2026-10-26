@@ -12,7 +12,7 @@ import * as crypto from 'crypto';
 import axios from 'axios';
 
 // Move API key to environment variable
-const paystack = require('paystack')(process.env.PAYSTACK_SECRET_KEY || 'sk_test_5b533438ddd2423da733c718b434b2771d9dadd6');
+const paystack = require('paystack')(process.env.PAYSTACK_SECRET_KEY );
 
 @Injectable()
 export class PaymentsService {
@@ -138,8 +138,8 @@ export class PaymentsService {
         amount: createPaymentDto.amount,
         type: createPaymentDto.type,
         user: user,
-        appointment: appointment || undefined, // Use undefined instead of null
-        pharmacyOrder: pharmacyOrder || undefined, // Use undefined instead of null
+        appointment: appointment || undefined, 
+        pharmacyOrder: pharmacyOrder || undefined, 
         paystackReference: reference,
         paystackAccessCode: paystackResponse.data.access_code,
         paystackAuthorizationUrl: paystackResponse.data.authorization_url,
@@ -338,7 +338,7 @@ export class PaymentsService {
     try {
       // Verify webhook signature
       const hash = crypto
-        .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY || 'sk_test_5b533438ddd2423da733c718b434b2771d9dadd6')
+        .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY || )
         .update(JSON.stringify(payload))
         .digest('hex');
 
