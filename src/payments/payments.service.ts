@@ -336,20 +336,19 @@ export class PaymentsService {
 
   async handleWebhook(payload: any, signature: string): Promise<void> {
      try {
-+      const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
-+
-+      if (!paystackSecretKey) {
-+        throw new BadRequestException(
-+          'PAYSTACK_SECRET_KEY is not configured',
-+        );
-+      }
-+
+      const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+
+      if (!paystackSecretKey) {
+        throw new BadRequestException(
+          'PAYSTACK_SECRET_KEY is not configured',
+        );
+      }
+
        // Verify webhook signature
        const hash = crypto
--        .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY )
-+        .createHmac('sha512', paystackSecretKey)
-         .update(JSON.stringify(payload))
-         .digest('hex');
+        .createHmac('sha512', paystackSecretKey)
+        .update(JSON.stringify(payload))
+        .digest('hex');
 
       if (hash !== signature) {
         throw new BadRequestException('Invalid webhook signature');
